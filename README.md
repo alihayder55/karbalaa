@@ -1,64 +1,131 @@
-<h1 align="center">Welcome to expo-template-tabs-typescript</h1>
-<p>
-  <a href="https://www.npmjs.com/package/expo-template-tabs-typescript" target="_blank">
-    <img alt="Version" src="https://img.shields.io/npm/v/expo-template-tabs-typescript.svg">
-  </a>
-  <a href="#" target="_blank">
-    <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" />
-  </a>
-  <a href="https://twitter.com/md5hashbrown" target="_blank">
-    <img alt="Twitter: md5hashbrown" src="https://img.shields.io/twitter/follow/md5hashbrown.svg?style=social" />
-  </a>
-</p>
+# Karbalaa - React Native App
 
-> The Tab Navigation project template includes several example screens.
+A React Native application with Arabic language support and phone number authentication using Supabase and WhatsApp OTP.
 
-## Usage
+## Features
 
-```sh
-expo init --template expo-templa
+- 🌍 Arabic language support with RTL layout
+- 📱 Phone number authentication via WhatsApp OTP
+- 🔐 Supabase backend integration
+- 🎨 Modern UI with Arabic typography
+- 📞 Phone number input with country picker
+- 🔄 Real-time authentication flow
+
+## Tech Stack
+
+- **Frontend**: React Native
+- **Backend**: Supabase
+- **Authentication**: Supabase Auth with Twilio WhatsApp
+- **UI Components**: Custom Arabic-styled components
+- **Phone Input**: react-native-phone-number-input
+- **Country Picker**: react-native-country-picker-modal
+
+## Prerequisites
+
+- Node.js (v16 or higher)
+- React Native CLI
+- Expo CLI
+- Supabase account
+- Twilio account (for WhatsApp messaging)
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone <your-repo-url>
+cd karbalaa
 ```
 
-## Development
-
-### Install
-
-```sh
-yarn
+2. Install dependencies:
+```bash
+npm install
 ```
 
-### Start
-
-```sh
-yarn start
+3. Install iOS dependencies (if developing for iOS):
+```bash
+cd ios && pod install && cd ..
 ```
 
-### Run tests
+## Configuration
 
-```sh
-yarn test
+### Supabase Setup
+
+1. Create a new Supabase project
+2. Enable Phone authentication in Authentication > Settings
+3. Configure Twilio as your SMS provider
+4. Set up WhatsApp messaging templates
+5. Add your Supabase URL and anon key to the configuration
+
+### Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-## Author
+## Project Structure
 
-👤 **Nusrath Khan <nusrath501khan@gmail.com>**
+```
+karbalaa/
+├── walcard/                 # Main app directory
+│   ├── lib/
+│   │   └── supabase.ts     # Supabase configuration
+│   ├── screens/
+│   │   ├── WelcomeScreen.tsx
+│   │   ├── LoginScreen.tsx
+│   │   └── RegisterScreen.tsx
+│   ├── components/
+│   │   └── PhoneInput.tsx
+│   └── App.tsx
+├── package.json
+├── .gitignore
+└── README.md
+```
 
-- Website: https://nusrath.com
-- Twitter: [@md5hashbrown](https://twitter.com/md5hashbrown)
-- Github: [@nunsie](https://github.com/nunsie)
+## Running the App
 
-## 🤝 Contributing
+### Development
 
-Contributions, issues and feature requests are welcome!<br />Feel free to check [issues page](https://github.com/nunsie/expo-template-tabs-typescript/issues). You can also take a look at the [contributing guide](https://github.com/ryanmcdermott/clean-code-javascript/blob/master/README.md).
+```bash
+# Start the development server
+npx expo start
 
-## Show your support
+# Run on iOS simulator
+npx expo run:ios
 
-Give a ⭐️ if this project helped you!
+# Run on Android emulator
+npx expo run:android
+```
 
-<a href="https://www.patreon.com/nunsie">
-  <img src="https://c5.patreon.com/external/logo/become_a_patron_button@2x.png" width="160">
-</a>
+### Production
 
----
+```bash
+# Build for production
+npx expo build:android
+npx expo build:ios
+```
 
-_This README was generated with ❤️ by [readme-md-generator](https://github.com/kefranabg/readme-md-generator)_
+## Authentication Flow
+
+1. **Welcome Screen**: App introduction with Arabic UI
+2. **Login Screen**: Phone number input with country picker
+3. **OTP Verification**: WhatsApp OTP sent via Twilio
+4. **Registration**: User profile creation after verification
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
+
+## Support
+
+For support and questions, please open an issue in the GitHub repository. 
