@@ -2,8 +2,9 @@ import 'react-native-url-polyfill/auto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const supabaseUrl = 'https://kkfkwaiiblnvhmmitie.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtrZmt3d2FpYmxudmhtbWl0dGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjA4NzU0OTIsImV4cCI6MjAzNjQ1MTQ5Mn0.u2_ardyhXxizBV8qTR1zkSjDEIu3XUhw0lpwwB5cRDQ';
+// WHATSAPP-ONLY MODE: Configured for Twilio WhatsApp verification
+const supabaseUrl = 'https://wbpynqwkamxxddoteswm.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndicHlucXdrYW14eGRkb3Rlc3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTY2NzUyNiwiZXhwIjoyMDY1MjQzNTI2fQ.0XTDeQKW70f90Fzj2FZsiRPS-e4TcI253SA9wek4IkQ';
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

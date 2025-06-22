@@ -22,32 +22,42 @@ export default function WelcomeScreen() {
 
       {/* Welcome Text */}
       <View style={styles.textContainer}>
-        <Text style={styles.title}>مرحباً بك في وولكارد</Text>
-        <Text style={styles.subtitle}>منصة تجارة الجملة الذكية</Text>
+        <Text style={styles.title}>مرحباً بك في ولكارد</Text>
+        <Text style={styles.subtitle}>منصة التجارة بالجملة الذكية</Text>
         
         <View style={styles.featuresContainer}>
-          <Text style={styles.featureText}>• تواصل مباشر مع الموردين</Text>
-          <Text style={styles.featureText}>• أسعار تنافسية بدون وسيط</Text>
-          <Text style={styles.featureText}>• توصيل سريع وموثوق</Text>
-          <Text style={styles.featureText}>• إدارة طلباتك بسهولة</Text>
+          <View style={styles.featureItem}>
+            <MaterialIcons name="handshake" size={20} color="#007AFF" />
+            <Text style={styles.featureText}>تواصل مباشر مع التجار</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <MaterialIcons name="price-check" size={20} color="#007AFF" />
+            <Text style={styles.featureText}>أسعار تنافسية بدون وسيط</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <MaterialIcons name="local-shipping" size={20} color="#007AFF" />
+            <Text style={styles.featureText}>توصيل سريع وموثوق</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <MaterialIcons name="dashboard" size={20} color="#007AFF" />
+            <Text style={styles.featureText}>إدارة طلباتك بسهولة</Text>
+          </View>
         </View>
       </View>
 
-      {/* Action Buttons */}
+      {/* Action Button */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => router.push('/auth/login')}
+          onPress={() => router.push('/auth/unified-auth')}
         >
-          <Text style={styles.buttonText}>تسجيل الدخول</Text>
+          <MaterialIcons name="login" size={24} color="#fff" style={styles.buttonIcon} />
+          <Text style={styles.buttonText}>ابدأ الآن</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={[styles.button, styles.secondaryButton]}
-          onPress={() => router.push('/auth/register')}
-        >
-          <Text style={[styles.buttonText, styles.secondaryButtonText]}>إنشاء حساب جديد</Text>
-        </TouchableOpacity>
+        <Text style={styles.helpText}>
+          سيتم التحقق من رقم هاتفك لتسجيل الدخول أو إنشاء حساب جديد
+        </Text>
       </View>
     </View>
   );
@@ -104,12 +114,19 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 20,
   },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 10,
+  },
   featureText: {
     fontSize: 16,
     color: '#444',
-    marginBottom: 15,
+    marginLeft: 12,
     textAlign: 'right',
     lineHeight: 24,
+    flex: 1,
   },
   buttonContainer: {
     width: '100%',
@@ -118,22 +135,35 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    borderRadius: 10,
+    paddingVertical: 18,
+    borderRadius: 12,
     width: '100%',
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  secondaryButtonText: {
-    color: '#007AFF',
+  helpText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 15,
+    lineHeight: 20,
+    paddingHorizontal: 10,
   },
 }); 
