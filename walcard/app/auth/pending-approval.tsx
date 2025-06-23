@@ -7,7 +7,9 @@ import {
   ScrollView,
   Alert,
   Linking,
-  AppState
+  AppState,
+  SafeAreaView,
+  Platform
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -18,7 +20,7 @@ const SUPPORT_PHONE = '+9647810277890';
 export default function PendingApprovalScreen() {
   const router = useRouter();
   const { userType, fullName } = useLocalSearchParams();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // فحص حالة الموافقة كل دقيقة
   const checkApprovalStatus = async () => {
@@ -151,7 +153,7 @@ export default function PendingApprovalScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView 
         contentContainerStyle={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -267,7 +269,7 @@ export default function PendingApprovalScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -278,11 +280,13 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 20 : 40,
+    paddingBottom: 20,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 40,
+    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',

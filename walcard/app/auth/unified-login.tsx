@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { checkNetworkConnectivity, testBasicConnection } from '../../lib/test-connection';
 
 // قائمة الدول العربية
 const ARAB_COUNTRIES = [
@@ -44,20 +45,64 @@ export default function UnifiedLoginScreen() {
   };
 
   const checkUserExists = async (phone: string) => {
-    try {
-      const { data, error } = await supabase
-        .rpc('get_user_account_info', { phone_input: phone });
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // Increased delay
 
-      if (error) {
-        console.error('Error checking user:', error);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`Checking user existence (attempt ${attempt}/${MAX_RETRIES})...`);
+        
+        // Check if user has a complete account (merchant or store_owner record)
+        const { data, error } = await supabase
+          .rpc('get_user_account_info', { phone_input: phone });
+
+        if (error) {
+          console.error(`Error checking user (attempt ${attempt}):`, error);
+          
+          // If it's a network error, timeout, or abort error and we have retries left, try again
+          if ((error.message?.includes('Network request failed') || 
+               error.message?.includes('Aborted') ||
+               error.message?.includes('timeout')) && attempt < MAX_RETRIES) {
+            console.log(`Network/timeout error, retrying in ${RETRY_DELAY}ms...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+            continue;
+          }
+          
+          // For other errors or final attempt, return null
+          return null;
+        }
+
+        console.log('User check successful:', data);
+        
+        // Only return user info if they have a complete account (merchant or store_owner)
+        if (data && data.length > 0) {
+          const userInfo = data[0];
+          // Check if user has either merchant or store_owner record
+          if (userInfo.has_account && (userInfo.user_type === 'merchant' || userInfo.user_type === 'store_owner')) {
+            return userInfo;
+          }
+        }
+        
+        return null;
+      } catch (error: any) {
+        console.error(`Error checking user existence (attempt ${attempt}):`, error);
+        
+        // If it's a network error, timeout, or abort error and we have retries left, try again
+        if ((error.message?.includes('Network request failed') || 
+             error.message?.includes('Aborted') ||
+             error.message?.includes('timeout')) && attempt < MAX_RETRIES) {
+          console.log(`Network/timeout error, retrying in ${RETRY_DELAY}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          continue;
+        }
+        
+        // For other errors or final attempt, return null
         return null;
       }
-
-      return data && data.length > 0 ? data[0] : null;
-    } catch (error) {
-      console.error('Error checking user existence:', error);
-      return null;
     }
+    
+    console.error('All attempts to check user failed');
+    return null;
   };
 
   const handlePhoneCheck = async () => {
@@ -70,6 +115,31 @@ export default function UnifiedLoginScreen() {
     setLoading(true);
 
     try {
+      // Check network connectivity first
+      const isConnected = await checkNetworkConnectivity();
+      if (!isConnected) {
+        Alert.alert(
+          'مشكلة في الاتصال', 
+          __DEV__ 
+            ? 'لا يوجد اتصال بالإنترنت. في وضع التطوير، تأكد من أن المحاكي متصل بالإنترنت.'
+            : 'لا يوجد اتصال بالإنترنت. تحقق من اتصالك وحاول مرة أخرى.'
+        );
+        return;
+      }
+
+      // Test basic Supabase connection before trying RPC
+      const isSupabaseConnected = await testBasicConnection();
+      if (!isSupabaseConnected) {
+        Alert.alert(
+          'مشكلة في الاتصال', 
+          __DEV__
+            ? 'لا يمكن الاتصال بالخادم. في وضع التطوير، تحقق من إعدادات المحاكي.'
+            : 'لا يمكن الاتصال بالخادم. تحقق من اتصال الإنترنت وحاول مرة أخرى.'
+        );
+        return;
+      }
+
+      console.log('Starting phone check for:', fullPhone);
       const accountInfo = await checkUserExists(fullPhone);
       
       if (accountInfo && accountInfo.has_account) {
@@ -77,25 +147,27 @@ export default function UnifiedLoginScreen() {
         setUserExists(true);
         setUserAccountInfo(accountInfo);
         
-        if (!accountInfo.is_approved) {
-          Alert.alert(
-            'حساب غير مفعل',
-            'حسابك قيد المراجعة. سيتم إشعارك عند الموافقة عليه.',
-            [{ text: 'موافق' }]
-          );
-          return;
-        }
-        
-        // إرسال OTP للمستخدم الموجود
+        // إرسال OTP للمستخدم الموجود (بغض النظر عن حالة الموافقة)
         await sendOTP(fullPhone, false, accountInfo.full_name);
       } else {
         // مستخدم جديد
         setUserExists(false);
         setUserAccountInfo(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking user:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء التحقق من رقم الهاتف');
+      
+      let errorMessage = 'حدث خطأ أثناء التحقق من رقم الهاتف';
+      
+      if (error?.message?.includes('Network request failed') || error?.message?.includes('Aborted')) {
+        errorMessage = 'مشكلة في الاتصال بالإنترنت، تحقق من اتصالك وحاول مرة أخرى';
+      } else if (error?.message?.includes('timeout')) {
+        errorMessage = 'انتهت مهلة الاتصال، تحقق من سرعة الإنترنت وحاول مرة أخرى';
+      } else if (error?.message?.includes('connection')) {
+        errorMessage = 'لا يمكن الاتصال بالخادم، تحقق من اتصال الإنترنت';
+      }
+      
+      Alert.alert('خطأ في الاتصال', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -203,6 +275,15 @@ export default function UnifiedLoginScreen() {
                   {formatPhoneNumber(countryCode, phoneNumber)}
                 </Text>
               </View>
+
+              {!userAccountInfo?.is_approved && (
+                <View style={styles.approvalNote}>
+                  <MaterialIcons name="info" size={16} color="#ff9800" />
+                  <Text style={styles.approvalNoteText}>
+                    حسابك قيد المراجعة. سيتم التحقق من حالة الموافقة بعد تسجيل الدخول.
+                  </Text>
+                </View>
+              )}
 
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
@@ -576,5 +657,18 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 16,
     color: '#666',
+  },
+  approvalNote: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  approvalNoteText: {
+    fontSize: 16,
+    color: '#333',
   },
 }); 
