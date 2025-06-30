@@ -14,7 +14,6 @@ import {
   SafeAreaView
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import OTPInputView from '@twotalltotems/react-native-otp-input';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { checkNetworkConnectivity } from '../../lib/test-connection';
@@ -29,6 +28,7 @@ export default function VerifyScreen() {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [otpInputError, setOtpInputError] = useState(false);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -57,39 +57,9 @@ export default function VerifyScreen() {
     ]).start();
 
     // Start countdown for resend
-    setCountdown(60);
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // Pulse animation for resend button
-  useEffect(() => {
-    if (countdown === 0) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
     }
   }, [countdown]);
 
@@ -145,95 +115,33 @@ export default function VerifyScreen() {
 
       console.log('OTP verified successfully');
       
-      // If this is registration, check if user has a complete profile
+      // Check if this is a registration flow
       if (params.isRegistration === 'true') {
-        try {
-          // Check if user has a complete profile
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user?.id)
-            .single();
-
-            if (profileError && profileError.code !== 'PGRST116') {
-              console.error('Error checking profile:', profileError);
-            }
-
-            // If no profile exists, create one
-            if (!profileData) {
-              const { error: insertError } = await supabase
-                .from('profiles')
-                .insert({
-                  id: data.user?.id,
-                  full_name: params.name as string,
-                  phone_number: phone as string,
-                  created_at: new Date().toISOString(),
-                });
-
-              if (insertError) {
-                console.error('Error creating profile:', insertError);
-              }
-            }
-
-            // Check if user has merchant or store owner record
-            const { data: merchantData } = await supabase
-              .from('merchants')
-              .select('*')
-              .eq('user_id', data.user?.id)
-              .single();
-
-            const { data: storeOwnerData } = await supabase
-              .from('store_owners')
-              .select('*')
-              .eq('user_id', data.user?.id)
-              .single();
-
-            // If user has complete registration, go to main app
-            if (merchantData || storeOwnerData) {
-              router.replace('/(tabs)');
-            } else {
-              // Redirect to user type selection
-              router.replace({
+        // For new users, redirect to user type selection
+        Alert.alert(
+          'نجاح', 
+          'تم التحقق من الرمز بنجاح، اختر نوع المستخدم',
+          [
+            {
+              text: 'متابعة',
+              onPress: () => router.replace({
                 pathname: '/auth/user-type-selection',
-                params: { phone, name: params.name }
-              });
-            }
-          } catch (error) {
-            console.error('Error in registration flow:', error);
-            // Redirect to user type selection
-            router.replace({
-              pathname: '/auth/user-type-selection',
-              params: { phone, name: params.name }
-            });
-          }
-      } else {
-        // For login, check if user has a complete profile and approval status
-        try {
-          // First check if user has a profile
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user?.id)
-            .single();
-
-          if (profileError || !profileData) {
-            // No profile exists, this shouldn't happen for existing users
-            Alert.alert(
-              'خطأ في الحساب',
-              'لم يتم العثور على معلومات الحساب. يرجى التواصل مع الدعم الفني.',
-              [
-                {
-                  text: 'موافق',
-                  onPress: () => router.replace('/auth/unified-auth')
+                params: { 
+                  phone: phone,
+                  fullName: params.name as string
                 }
-              ]
-            );
-            return;
+              })
           }
-
-          // Check user approval status
+          ]
+        );
+      } else {
+        // For existing users, check approval status
+        try {
           const { data: userData, error: userError } = await supabase
-            .rpc('get_user_account_info', { phone_input: phone as string });
+            .from('profiles')
+            .select('full_name, user_type, is_approved')
+            .eq('phone', phone)
+            .limit(1);
 
           if (!userError && userData && userData.length > 0) {
             const userInfo = userData[0];
@@ -339,6 +247,7 @@ export default function VerifyScreen() {
 
       console.log('OTP resent successfully');
       Alert.alert('نجاح', 'تم إعادة إرسال رمز التحقق');
+      setCountdown(60); // Start 60-second countdown
     } catch (error: any) {
       console.error('Resend error:', error);
       Alert.alert('خطأ', error.message || 'حدث خطأ أثناء إعادة إرسال الرمز');
@@ -375,9 +284,12 @@ export default function VerifyScreen() {
                   <MaterialIcons name="verified-user" size={80} color="#007AFF" />
                   <View style={styles.verificationIconBackground} />
                 </View>
-                <Text style={styles.verificationTitle}>تأكيد الهوية</Text>
+                <Text style={styles.verificationTitle}>التحقق من الرمز</Text>
                 <Text style={styles.verificationSubtitle}>
-                  تم إرسال رمز التحقق إلى رقم هاتفك
+                  {params.isRegistration === 'true' 
+                    ? 'أدخل رمز التحقق لإكمال التسجيل'
+                    : 'أدخل رمز التحقق لتسجيل الدخول'
+                  }
                 </Text>
               </View>
             </View>
@@ -398,33 +310,61 @@ export default function VerifyScreen() {
                 </Text>
                 
                 <View style={styles.otpInputContainer}>
-                  <OTPInputView
-                    style={styles.otpInput}
-                    pinCount={6}
-                    code={otp}
-                    onCodeChanged={(code) => {
-                      console.log('OTP changed:', code);
-                      setOtp(code);
-                    }}
-                    autoFocusOnLoad
-                    codeInputFieldStyle={styles.otpInputField}
-                    codeInputHighlightStyle={styles.otpInputHighlight}
-                    onCodeFilled={(code) => {
-                      console.log('OTP filled:', code);
-                      setOtp(code);
-                      // لا نرسل تلقائياً، نترك المستخدم يضغط على الزر
-                    }}
-                    secureTextEntry={false}
-                    editable={true}
+                  {otpInputError ? (
+                    <View style={styles.otpErrorContainer}>
+                      <Text style={styles.otpErrorText}>
+                        حدث خطأ في إدخال الرمز، حاول مرة أخرى
+                      </Text>
+                      <TouchableOpacity 
+                        style={styles.retryButton}
+                        onPress={() => setOtpInputError(false)}
+                      >
+                        <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
+                      </TouchableOpacity>
+                      
+                      {/* Fallback text input */}
+                      <View style={styles.fallbackInputContainer}>
+                        <Text style={styles.fallbackInputLabel}>
+                          أو أدخل الرمز يدوياً:
+                        </Text>
+                        <TextInput
+                          style={styles.fallbackInput}
+                          placeholder="000000"
+                          placeholderTextColor="#999"
+                          value={otp}
+                          onChangeText={setOtp}
+                          keyboardType="numeric"
+                          maxLength={6}
+                          textAlign="center"
+                          autoFocus={false}
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.otpWrapper}>
+                      {/* Temporary simple OTP input for testing */}
+                      <Text style={styles.otpLabel}>أدخل رمز التحقق (6 أرقام):</Text>
+                      <TextInput
+                        style={styles.simpleOtpInput}
+                        placeholder="000000"
+                        placeholderTextColor="#999"
+                        value={otp}
+                        onChangeText={setOtp}
+                        keyboardType="numeric"
+                        maxLength={6}
+                        textAlign="center"
+                        autoFocus={true}
                   />
+                    </View>
+                  )}
                 </View>
               </View>
 
               {params.isRegistration === 'true' && (
                 <View style={styles.registrationNote}>
-                  <MaterialIcons name="person-add" size={20} color="#007AFF" />
+                  <MaterialIcons name="info" size={16} color="#28a745" />
                   <Text style={styles.registrationNoteText}>
-                    إنشاء حساب جديد: {params.name}
+                    سيتم إنشاء حساب جديد بعد التحقق من الرمز
                   </Text>
                 </View>
               )}
@@ -441,19 +381,18 @@ export default function VerifyScreen() {
                     color="#fff" 
                   />
                   <Text style={styles.buttonText}>
-                    {loading ? 'جاري التحقق...' : 'تأكيد الرمز'}
+                    {loading ? 'جاري التحقق...' : 'تحقق من الرمز'}
                   </Text>
                 </View>
               </TouchableOpacity>
 
               <View style={styles.resendSection}>
-                <Text style={styles.resendLabel}>
-                  لم تستلم الرمز؟
-                </Text>
-                
-                <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                <Text style={styles.resendLabel}>لم تستلم الرمز؟</Text>
                   <TouchableOpacity
-                    style={[styles.resendButton, countdown > 0 && styles.resendButtonDisabled]}
+                  style={[
+                    styles.resendButton,
+                    (resendLoading || countdown > 0) && styles.resendButtonDisabled
+                  ]}
                     onPress={handleResend}
                     disabled={resendLoading || countdown > 0}
                   >
@@ -463,13 +402,19 @@ export default function VerifyScreen() {
                         size={20} 
                         color={countdown > 0 ? "#999" : "#007AFF"} 
                       />
-                      <Text style={[styles.resendButtonText, countdown > 0 && styles.resendButtonTextDisabled]}>
-                        {resendLoading ? 'جاري الإرسال...' : 
-                         countdown > 0 ? `إعادة الإرسال (${countdown})` : 'إعادة إرسال الرمز'}
+                    <Text style={[
+                      styles.resendButtonText,
+                      countdown > 0 && styles.resendButtonTextDisabled
+                    ]}>
+                      {resendLoading 
+                        ? 'جاري الإرسال...' 
+                        : countdown > 0 
+                          ? `إعادة الإرسال (${countdown})` 
+                          : 'إعادة الإرسال'
+                      }
                       </Text>
                     </View>
                   </TouchableOpacity>
-                </Animated.View>
               </View>
 
               <View style={styles.infoBox}>
@@ -593,6 +538,27 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
     backgroundColor: '#fff',
   },
+  otpErrorContainer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  otpErrorText: {
+    fontSize: 16,
+    color: '#dc3545',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   registrationNote: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -667,5 +633,41 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 14,
     color: '#666',
+  },
+  fallbackInputContainer: {
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  fallbackInputLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  fallbackInput: {
+    width: 120,
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    color: '#333',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  otpWrapper: {
+    alignItems: 'center',
+  },
+  simpleOtpInput: {
+    width: 120,
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    color: '#333',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 }); 
