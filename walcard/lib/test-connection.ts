@@ -26,7 +26,7 @@ export async function testBasicConnection() {
     
     // Test with a simple query that doesn't require RPC
     const { data, error } = await supabase
-      .from('profiles')
+      .from('users')
       .select('id')
       .limit(1);
     
@@ -48,7 +48,7 @@ export async function testSupabaseConnection() {
     console.log('Testing Supabase connection to: https://wbpynqwkamxxddoteswm.supabase.co');
     
     // Test basic connection
-    const { data, error } = await supabase.from('profiles').select('count').limit(1);
+    const { data, error } = await supabase.from('users').select('count').limit(1);
     
     if (error) {
       console.log('Supabase connection test failed:', error.message);

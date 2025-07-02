@@ -9,18 +9,28 @@ import {
   Linking,
   AppState,
   SafeAreaView,
-  Platform
+  Platform,
+  KeyboardAvoidingView,
+  Animated,
+  Dimensions
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 
 const SUPPORT_PHONE = '+9647810277890';
+const { width, height } = Dimensions.get('window');
 
 export default function PendingApprovalScreen() {
   const router = useRouter();
   const { userType, fullName } = useLocalSearchParams();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // فحص حالة الموافقة كل دقيقة
   const checkApprovalStatus = async () => {
@@ -98,6 +108,44 @@ export default function PendingApprovalScreen() {
     };
   }, [userType, router]);
 
+  useEffect(() => {
+    // Start animations when component mounts
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Start pulse animation
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseAnimation.start();
+  }, []);
+
   const handleContactSupport = () => {
     Alert.alert(
       'تواصل مع الدعم',
@@ -144,131 +192,151 @@ export default function PendingApprovalScreen() {
     return userType === 'merchant' ? 'تاجر' : 'صاحب محل';
   };
 
-  const getIconName = () => {
+  const getUserTypeIcon = () => {
     return userType === 'merchant' ? 'business' : 'store';
-  };
-
-  const getIconColor = () => {
-    return userType === 'merchant' ? '#007AFF' : '#FF6B35';
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <View style={[styles.iconContainer, { backgroundColor: getIconColor() + '20' }]}>
-              <MaterialIcons name={getIconName()} size={64} color={getIconColor()} />
-            </View>
-            <Text style={styles.title}>طلبك قيد المراجعة</Text>
-            <Text style={styles.subtitle}>
-              مرحباً {fullName}، تم استلام طلب التسجيل كـ {getUserTypeText()}
-            </Text>
-          </View>
-
-          <View style={styles.statusCard}>
-            <View style={styles.statusHeader}>
-              <MaterialIcons name="schedule" size={32} color="#FF9500" />
-              <Text style={styles.statusTitle}>حالة الطلب</Text>
-            </View>
-            <Text style={styles.statusText}>
-              طلبك قيد المراجعة من قبل فريقنا المختص
-            </Text>
-            <View style={styles.timelineContainer}>
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineIcon, styles.completed]}>
-                  <MaterialIcons name="check" size={16} color="#fff" />
-                </View>
-                <Text style={styles.timelineText}>تم إرسال الطلب</Text>
-              </View>
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineIcon, styles.current]}>
-                  <MaterialIcons name="schedule" size={16} color="#fff" />
-                </View>
-                <Text style={styles.timelineText}>قيد المراجعة</Text>
-              </View>
-              <View style={styles.timelineItem}>
-                <View style={styles.timelineIcon}>
-                  <MaterialIcons name="check-circle" size={16} color="#ccc" />
-                </View>
-                <Text style={[styles.timelineText, styles.pending]}>الموافقة</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.infoCard}>
-            <MaterialIcons name="info" size={24} color="#007AFF" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>وقت المراجعة المتوقع</Text>
-              <Text style={styles.infoText}>
-                يتم مراجعة الطلبات خلال 24-48 ساعة من تاريخ الإرسال. 
-                ستتلقى إشعاراً فور الموافقة على حسابك.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.requirementsCard}>
-            <Text style={styles.requirementsTitle}>متطلبات الموافقة:</Text>
-            {userType === 'merchant' ? (
-              <View style={styles.requirementsList}>
-                <View style={styles.requirementItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#28a745" />
-                  <Text style={styles.requirementText}>معلومات النشاط التجاري صحيحة</Text>
-                </View>
-                <View style={styles.requirementItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#28a745" />
-                  <Text style={styles.requirementText}>رقم الهاتف مفعل</Text>
-                </View>
-                <View style={styles.requirementItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#28a745" />
-                  <Text style={styles.requirementText}>تحديد المنتجات المتاحة</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.requirementsList}>
-                <View style={styles.requirementItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#28a745" />
-                  <Text style={styles.requirementText}>معلومات المحل صحيحة</Text>
-                </View>
-                <View style={styles.requirementItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#28a745" />
-                  <Text style={styles.requirementText}>رقم الهاتف مفعل</Text>
-                </View>
-                <View style={styles.requirementItem}>
-                  <MaterialIcons name="check-circle" size={16} color="#28a745" />
-                  <Text style={styles.requirementText}>تحديد نوع المحل</Text>
-                </View>
-              </View>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={styles.supportButton}
-            onPress={handleContactSupport}
+      <View style={styles.container}>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView 
+            contentContainerStyle={styles.scrollView}
+            showsVerticalScrollIndicator={false}
           >
-            <MaterialIcons name="support-agent" size={24} color="#fff" />
-            <Text style={styles.supportButtonText}>تواصل مع الدعم</Text>
-          </TouchableOpacity>
+            <Animated.View 
+              style={[
+                styles.content,
+                {
+                  opacity: fadeAnim,
+                  transform: [
+                    { translateY: slideAnim },
+                    { scale: scaleAnim }
+                  ]
+                }
+              ]}
+            >
+              <View style={styles.header}>
+                <View style={styles.welcomeContainer}>
+                  <Animated.View 
+                    style={[
+                      styles.avatarContainer,
+                      {
+                        transform: [{ scale: pulseAnim }]
+                      }
+                    ]}
+                  >
+                    <MaterialIcons name="pending" size={80} color="#ff9800" />
+                    <View style={styles.statusIndicator}>
+                      <MaterialIcons name="schedule" size={24} color="#ff9800" />
+                    </View>
+                  </Animated.View>
+                  <Text style={styles.welcomeTitle}>مرحباً بك في ولكارد</Text>
+                  <Text style={styles.userName}>{fullName}</Text>
+                  <View style={styles.userTypeBadge}>
+                    <MaterialIcons 
+                      name={getUserTypeIcon()} 
+                      size={16} 
+                      color="#007AFF" 
+                    />
+                    <Text style={styles.userType}>
+                      {getUserTypeText()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
 
-          <View style={styles.supportInfo}>
-            <MaterialIcons name="phone" size={20} color="#666" />
-            <Text style={styles.supportText}>
-              أرقام الدعم: {SUPPORT_PHONE}
-            </Text>
-          </View>
+              <View style={styles.formContainer}>
+                <View style={styles.sectionTitle}>
+                  <MaterialIcons name="schedule" size={24} color="#ff9800" />
+                  <Text style={styles.sectionTitleText}>حسابك قيد المراجعة</Text>
+                </View>
 
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <MaterialIcons name="logout" size={20} color="#dc3545" />
-            <Text style={styles.logoutButtonText}>تسجيل خروج</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+                <View style={styles.statusContainer}>
+                  <View style={styles.statusIconContainer}>
+                    <MaterialIcons name="pending-actions" size={48} color="#ff9800" />
+                  </View>
+                  <Text style={styles.statusTitle}>في انتظار الموافقة</Text>
+                  <Text style={styles.statusDescription}>
+                    فريق ولكارد يراجع طلبك حالياً. هذه العملية تستغرق عادةً 24-48 ساعة.
+                  </Text>
+                </View>
+
+                <View style={styles.processSteps}>
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepIcon}>
+                      <MaterialIcons name="check-circle" size={24} color="#28a745" />
+                    </View>
+                    <View style={styles.stepContent}>
+                      <Text style={styles.stepTitle}>تم إنشاء الحساب</Text>
+                      <Text style={styles.stepDescription}>
+                        تم إنشاء حسابك بنجاح وإرسال البيانات للمراجعة
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.stepItem}>
+                    <View style={[styles.stepIcon, styles.stepIconPending]}>
+                      <MaterialIcons name="schedule" size={24} color="#ff9800" />
+                    </View>
+                    <View style={styles.stepContent}>
+                      <Text style={styles.stepTitle}>قيد المراجعة</Text>
+                      <Text style={styles.stepDescription}>
+                        فريق ولكارد يراجع معلوماتك للتأكد من صحتها
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.stepItem}>
+                    <View style={[styles.stepIcon, styles.stepIconFuture]}>
+                      <MaterialIcons name="verified" size={24} color="#ccc" />
+                    </View>
+                    <View style={styles.stepContent}>
+                      <Text style={[styles.stepTitle, styles.stepTitleFuture]}>الموافقة</Text>
+                      <Text style={[styles.stepDescription, styles.stepDescriptionFuture]}>
+                        بعد الموافقة ستتمكن من الوصول لجميع الميزات
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.infoBox}>
+                  <MaterialIcons name="info" size={20} color="#007AFF" />
+                  <Text style={styles.infoText}>
+                    ستتلقى إشعاراً عبر الهاتف عند الموافقة على حسابك
+                  </Text>
+                </View>
+
+                <View style={styles.infoBox}>
+                  <MaterialIcons name="support-agent" size={20} color="#28a745" />
+                  <Text style={styles.infoText}>
+                    للاستفسار حول حالة طلبك، تواصل مع فريق الدعم
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.contactButton}
+                  onPress={handleContactSupport}
+                >
+                  <MaterialIcons name="support-agent" size={20} color="#fff" />
+                  <Text style={styles.contactButtonText}>تواصل مع الدعم</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={handleLogout}
+                >
+                  <MaterialIcons name="logout" size={20} color="#dc3545" />
+                  <Text style={styles.backButtonText}>تسجيل خروج</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -276,187 +344,193 @@ export default function PendingApprovalScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   scrollView: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 20 : 40,
     paddingBottom: 20,
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
+    paddingVertical: 30,
   },
-  iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
+  welcomeContainer: {
     alignItems: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
     marginBottom: 20,
   },
-  title: {
+  statusIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 2,
+  },
+  welcomeTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    color: '#1a1a1a',
     textAlign: 'center',
+    marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
+  userName: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#007AFF',
     textAlign: 'center',
-    lineHeight: 24,
+    marginBottom: 8,
   },
-  statusCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  statusHeader: {
+  userTypeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  statusTitle: {
+  userType: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginLeft: 6,
+  },
+  formContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  sectionTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  sectionTitleText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1a1a1a',
+    marginLeft: 12,
   },
-  statusText: {
+  statusContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  statusIconContainer: {
+    marginBottom: 16,
+  },
+  statusTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#ff9800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  statusDescription: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 20,
+    textAlign: 'center',
     lineHeight: 24,
   },
-  timelineContainer: {
-    gap: 12,
+  processSteps: {
+    marginBottom: 32,
   },
-  timelineItem: {
+  stepItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    alignItems: 'flex-start',
+    marginBottom: 20,
   },
-  timelineIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#e9ecef',
+  stepIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e8f5e8',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
   },
-  completed: {
-    backgroundColor: '#28a745',
+  stepIconPending: {
+    backgroundColor: '#fff3e0',
   },
-  current: {
-    backgroundColor: '#FF9500',
+  stepIconFuture: {
+    backgroundColor: '#f5f5f5',
   },
-  timelineText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
-  pending: {
-    color: '#999',
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f8ff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  infoContent: {
+  stepContent: {
     flex: 1,
   },
-  infoTitle: {
+  stepTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginBottom: 8,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  stepTitleFuture: {
+    color: '#999',
+  },
+  stepDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  stepDescriptionFuture: {
+    color: '#999',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e3f2fd',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
   infoText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: '#1976d2',
+    marginLeft: 12,
+    flex: 1,
     lineHeight: 20,
   },
-  requirementsCard: {
-    backgroundColor: '#f0fff4',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: '#c3e6cb',
-  },
-  requirementsTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#155724',
-    marginBottom: 12,
-  },
-  requirementsList: {
-    gap: 8,
-  },
-  requirementItem: {
+  contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  requirementText: {
-    fontSize: 14,
-    color: '#155724',
-  },
-  supportButton: {
+    justifyContent: 'center',
     backgroundColor: '#28a745',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 12,
     paddingVertical: 16,
-    borderRadius: 12,
     marginBottom: 16,
-    gap: 8,
   },
-  supportButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  supportInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 30,
-  },
-  supportText: {
-    fontSize: 14,
-    color: '#666',
-    direction: 'ltr',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#dc3545',
-    borderRadius: 12,
-  },
-  logoutButtonText: {
-    color: '#dc3545',
+  contactButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#fff',
+    marginLeft: 8,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 8,
   },
 }); 

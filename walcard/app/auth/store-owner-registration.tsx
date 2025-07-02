@@ -22,7 +22,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../lib/supabase';
+import { supabase, createUser, createStoreOwner, getBusinessTypes, getCities, getWorkingDays } from '../../lib/supabase';
 import { checkNetworkConnectivity } from '../../lib/test-connection';
 
 const { width, height } = Dimensions.get('window');
@@ -299,11 +299,13 @@ export default function StoreOwnerRegistrationScreen() {
 
       // Create or update profile
       const { error: profileError } = await supabase
-        .from('profiles')
+        .from('users')
         .upsert({
           id: user.id,
           full_name: ownerName.trim(),
           phone_number: phoneNumbers[0],
+          user_type: 'store_owner',
+          is_approved: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
@@ -317,17 +319,16 @@ export default function StoreOwnerRegistrationScreen() {
         .from('store_owners')
         .insert({
           user_id: user.id,
-          owner_name: ownerName.trim(),
-          phone_numbers: phoneNumbers,
-          whatsapp_number: whatsappNumber.trim(),
           store_name: storeName.trim(),
-          business_type: selectedBusinessType,
+          store_type: selectedBusinessType,
           address: address.trim(),
-          location: location.trim(),
-          working_days: workingDays,
-          opening_time: openingTime.trim(),
-          closing_time: closingTime.trim(),
-          is_approved: false
+          nearest_landmark: location.trim(),
+          work_days: workingDays.join(','),
+          open_time: openingTime.trim(),
+          close_time: closingTime.trim(),
+          storefront_image: null,
+          latitude: selectedLocation?.latitude,
+          longitude: selectedLocation?.longitude
         });
 
       if (storeOwnerError) {
@@ -1464,7 +1465,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
   },
-  mapButtons: {
+  mapButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

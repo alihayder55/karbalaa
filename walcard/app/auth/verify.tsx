@@ -137,16 +137,22 @@ export default function VerifyScreen() {
       } else {
         // For existing users, check approval status
         try {
+          console.log('🔍 Checking user approval status for:', phone);
+          
           const { data: userData, error: userError } = await supabase
-            .from('profiles')
+            .from('users')
             .select('full_name, user_type, is_approved')
-            .eq('phone', phone)
-            .limit(1);
+            .eq('phone_number', phone)
+            .single();
 
-          if (!userError && userData && userData.length > 0) {
-            const userInfo = userData[0];
+          console.log('📊 User data:', userData, 'Error:', userError);
+
+          if (!userError && userData) {
+            const userInfo = userData;
+            console.log('👤 User info:', userInfo);
             
             if (!userInfo.is_approved) {
+              console.log('⏳ User not approved, redirecting to pending approval');
               // User is not approved, redirect to pending approval
               Alert.alert(
                 'حساب قيد المراجعة',
@@ -165,13 +171,18 @@ export default function VerifyScreen() {
                 ]
               );
               return;
+            } else {
+              console.log('✅ User approved, proceeding to main app');
             }
+          } else {
+            console.log('❌ Error fetching user data or user not found');
           }
         } catch (error) {
           console.error('Error checking user status:', error);
         }
 
         // User is approved or error occurred, go to main app
+        console.log('🚀 Redirecting to main app');
         Alert.alert(
           'نجاح', 
           'تم تسجيل الدخول بنجاح',

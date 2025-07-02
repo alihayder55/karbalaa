@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
+import { supabase, getUserAccountInfo, createUser, createMerchant, createStoreOwner } from '../../lib/supabase';
 import { checkNetworkConnectivity, testBasicConnection } from '../../lib/test-connection';
 
 const { width, height } = Dimensions.get('window');
@@ -71,7 +71,8 @@ export default function UnifiedAuthScreen() {
   }, []);
 
   const formatPhoneNumber = (country: string, phone: string) => {
-    const cleanPhone = phone.replace(/^\+?964|^0/, '');
+    // إزالة أي بادئة 0 أو +964 من الرقم المدخل
+    let cleanPhone = phone.trim().replace(/^0+/, '').replace(/^\+?964/, '');
     return `${country}${cleanPhone}`;
   };
 
@@ -81,48 +82,29 @@ export default function UnifiedAuthScreen() {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        console.log(`Checking user existence (attempt ${attempt}/${MAX_RETRIES})...`);
+        console.log(`🔍 Checking user existence (attempt ${attempt}/${MAX_RETRIES}) for phone: ${phone}`);
         
-        // Check if user has a complete account (merchant or store_owner record)
-        const { data, error } = await supabase
-          .rpc('get_user_account_info', { phone_input: phone });
+        // Use the new function to check user account info
+        const userInfo = await getUserAccountInfo(phone);
 
-        if (error) {
-          console.error(`Error checking user (attempt ${attempt}):`, error);
-          
-          // If it's a network error, timeout, or abort error and we have retries left, try again
-          if ((error.message?.includes('Network request failed') || 
-               error.message?.includes('Aborted') ||
-               error.message?.includes('timeout')) && attempt < MAX_RETRIES) {
-            console.log(`Network/timeout error, retrying in ${RETRY_DELAY}ms...`);
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-            continue;
-          }
-          
-          // For other errors or final attempt, return null
-          return null;
-        }
+        console.log('📱 User info received:', userInfo);
 
-        console.log('User check successful:', data);
-        
-        // Only return user info if they have a complete account (merchant or store_owner)
-        if (data && data.length > 0) {
-          const userInfo = data[0];
-          // Check if user has either merchant or store_owner record
-          if (userInfo.has_account && (userInfo.user_type === 'merchant' || userInfo.user_type === 'store_owner')) {
-            return userInfo;
-          }
+        if (userInfo && userInfo.has_account) {
+          console.log('✅ User check successful - User exists:', userInfo);
+          return userInfo;
+        } else {
+          console.log('❌ User check - No account found or has_account is false');
         }
         
         return null;
       } catch (error: any) {
-        console.error(`Error checking user existence (attempt ${attempt}):`, error);
+        console.error(`❌ Error checking user existence (attempt ${attempt}):`, error);
         
         // If it's a network error, timeout, or abort error and we have retries left, try again
         if ((error.message?.includes('Network request failed') || 
              error.message?.includes('Aborted') ||
              error.message?.includes('timeout')) && attempt < MAX_RETRIES) {
-          console.log(`Network/timeout error, retrying in ${RETRY_DELAY}ms...`);
+          console.log(`🌐 Network/timeout error, retrying in ${RETRY_DELAY}ms...`);
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           continue;
         }
@@ -132,7 +114,7 @@ export default function UnifiedAuthScreen() {
       }
     }
     
-    console.error('All attempts to check user failed');
+    console.error('❌ All attempts to check user failed');
     return null;
   };
 
@@ -170,20 +152,25 @@ export default function UnifiedAuthScreen() {
         return;
       }
 
-      console.log('Starting phone check for:', fullPhone);
+      console.log('🚀 Starting phone check for:', fullPhone);
       const accountInfo = await checkUserExists(fullPhone);
+      
+      console.log('📊 Account info result:', accountInfo);
       
       if (accountInfo && accountInfo.has_account) {
         // المستخدم موجود
+        console.log('✅ User exists - setting userExists to true');
         setUserExists(true);
         setUserAccountInfo(accountInfo);
         
         // إرسال OTP للمستخدم الموجود (بغض النظر عن حالة الموافقة)
         await sendOTP(fullPhone, false, accountInfo.full_name);
       } else {
-        // مستخدم جديد
+        // مستخدم جديد - لا نرسل OTP هنا، ننتظر إدخال الاسم
+        console.log('🆕 New user - setting userExists to false');
         setUserExists(false);
         setUserAccountInfo(null);
+        // لا نرسل OTP هنا، سنرسله بعد إدخال الاسم
       }
     } catch (error: any) {
       console.error('Error checking user:', error);
@@ -267,8 +254,24 @@ export default function UnifiedAuthScreen() {
       return;
     }
 
-    const fullPhone = formatPhoneNumber(countryCode, phoneNumber);
-    await sendOTP(fullPhone, true, fullName.trim());
+    if (fullName.trim().length < 3) {
+      Alert.alert('خطأ', 'الاسم يجب أن يكون 3 أحرف على الأقل');
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const fullPhone = formatPhoneNumber(countryCode, phoneNumber);
+      console.log('📝 Sending OTP for new user registration:', { fullPhone, fullName: fullName.trim() });
+      
+      await sendOTP(fullPhone, true, fullName.trim());
+    } catch (error) {
+      console.error('Error in new user registration:', error);
+      Alert.alert('خطأ', 'حدث خطأ أثناء إرسال رمز التحقق');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleExistingUserLogin = async () => {
@@ -454,49 +457,27 @@ export default function UnifiedAuthScreen() {
                   </View>
                 </View>
 
-                <View style={styles.userTypeSelection}>
-                  <Text style={styles.inputLabel}>نوع الحساب</Text>
-                  <View style={styles.userTypeOptions}>
-                    <TouchableOpacity
-                      style={[styles.userTypeOption, styles.userTypeOptionActive]}
-                      onPress={() => router.push({
-                        pathname: '/auth/merchant-registration',
-                        params: { 
-                          phone: formatPhoneNumber(countryCode, phoneNumber),
-                          fullName: fullName
-                        }
-                      })}
-                    >
-                      <MaterialIcons name="business" size={32} color="#007AFF" />
-                      <Text style={styles.userTypeOptionTitle}>تاجر</Text>
-                      <Text style={styles.userTypeOptionDescription}>
-                        بيع المنتجات بالجملة
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.userTypeOption, styles.userTypeOptionActive]}
-                      onPress={() => router.push({
-                        pathname: '/auth/store-owner-registration',
-                        params: { 
-                          phone: formatPhoneNumber(countryCode, phoneNumber),
-                          fullName: fullName
-                        }
-                      })}
-                    >
-                      <MaterialIcons name="store" size={32} color="#007AFF" />
-                      <Text style={styles.userTypeOptionTitle}>صاحب محل</Text>
-                      <Text style={styles.userTypeOptionDescription}>
-                        شراء المنتجات للبيع
-                      </Text>
-                    </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, (!fullName.trim() || loading) && styles.buttonDisabled]}
+                  onPress={handleNewUserRegistration}
+                  disabled={!fullName.trim() || loading}
+                >
+                  <View style={styles.buttonContent}>
+                    <MaterialIcons 
+                      name={loading ? "hourglass-empty" : "send"} 
+                      size={24} 
+                      color="#fff" 
+                    />
+                    <Text style={styles.buttonText}>
+                      {loading ? 'جاري الإرسال...' : 'إرسال رمز التحقق'}
+                    </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.infoBox}>
                   <MaterialIcons name="info" size={20} color="#007AFF" />
                   <Text style={styles.infoText}>
-                    اختر نوع الحساب المناسب لك لاستكمال التسجيل
+                    سيتم إرسال رمز التحقق إلى رقم هاتفك لتأكيد الحساب
                   </Text>
                 </View>
 

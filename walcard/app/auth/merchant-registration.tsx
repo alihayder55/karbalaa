@@ -20,7 +20,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
-import { supabase } from '../../lib/supabase';
+import { supabase, createUser, createMerchant, getBusinessTypes, getCities, getWorkingDays } from '../../lib/supabase';
 import { checkNetworkConnectivity } from '../../lib/test-connection';
 
 const { width, height } = Dimensions.get('window');
@@ -266,7 +266,7 @@ export default function MerchantRegistrationScreen() {
 
       // Check if user has a profile, create one if not
       const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+        .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
@@ -274,12 +274,14 @@ export default function MerchantRegistrationScreen() {
       if (profileError || !profileData) {
         // Create profile if it doesn't exist
         const { error: createProfileError } = await supabase
-          .from('profiles')
+          .from('users')
           .insert([
             {
               id: user.id,
               full_name: formData.fullName,
               phone_number: formData.phoneNumber,
+              user_type: 'merchant',
+              is_approved: false,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }
@@ -297,25 +299,19 @@ export default function MerchantRegistrationScreen() {
         .insert([
           {
             user_id: user.id,
-            full_name: formData.fullName,
-            company_name: formData.companyName,
-            store_name: formData.storeName,
-            phone_number: formData.phoneNumber,
-            whatsapp_number: formData.whatsappNumber,
+            business_name: formData.storeName,
             business_type: formData.businessType,
-            address: formData.address,
+            nearest_landmark: formData.address,
             city: formData.city,
-            district: formData.district,
+            region: formData.district,
+            work_days: formData.workingDays.join(','),
+            open_time: formData.openingTime,
+            close_time: formData.closingTime,
+            identity_image: formData.idImage,
+            store_image: formData.storeImage,
             latitude: formData.latitude,
             longitude: formData.longitude,
-            working_days: formData.workingDays,
-            opening_time: formData.openingTime,
-            closing_time: formData.closingTime,
-            id_image: formData.idImage,
-            store_image: formData.storeImage,
-            wants_ads: formData.wantsAds,
-            offers_daily_deals: formData.offersDailyDeals,
-            is_approved: false
+            abs: formData.wantsAds
           }
         ]);
 
