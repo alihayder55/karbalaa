@@ -138,7 +138,7 @@ export default function RegisterScreen() {
       let { data, error } = await supabase.auth.signInWithOtp({
         phone: formattedValue,
         options: {
-          channel: 'whatsapp',
+          channel: 'sms',
           data: {
             phone_number: formattedValue,
             full_name: name.trim()

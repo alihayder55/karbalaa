@@ -182,7 +182,7 @@ export default function UnifiedLoginScreen() {
       let { data, error } = await supabase.auth.signInWithOtp({
         phone,
         options: {
-          channel: 'whatsapp',
+          channel: 'sms',
           data: {
             phone_number: phone,
             ...(isRegistration && name ? { full_name: name } : {})

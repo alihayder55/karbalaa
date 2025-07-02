@@ -208,7 +208,7 @@ export default function VerifyScreen() {
       let { data, error } = await supabase.auth.signInWithOtp({
         phone: phone as string,
         options: {
-          channel: 'whatsapp',
+          channel: 'sms',
           data: {
             phone_number: phone as string,
             ...(params.isRegistration === 'true' && params.name ? { full_name: params.name as string } : {})

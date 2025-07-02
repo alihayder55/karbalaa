@@ -104,7 +104,7 @@ export default function LoginScreen() {
       let { data, error } = await supabase.auth.signInWithOtp({
         phone: formattedValue,
         options: {
-          channel: 'whatsapp',
+          channel: 'sms',
           data: {
             phone_number: formattedValue
           }
