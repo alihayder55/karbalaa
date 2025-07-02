@@ -242,7 +242,20 @@ export default function UnifiedAuthScreen() {
       });
     } catch (error: any) {
       console.error('OTP sending error:', error);
-      Alert.alert('خطأ', error.message || 'حدث خطأ أثناء إرسال رمز التحقق');
+      
+      let errorMessage = 'حدث خطأ أثناء إرسال رمز التحقق';
+      
+      if (error?.message?.includes('60410')) {
+        errorMessage = 'تم حظرك مؤقتاً. سيتم إعادة التفعيل بعد 12 ساعة.';
+      } else if (error?.message?.includes('Invalid phone number')) {
+        errorMessage = 'رقم الهاتف غير صحيح. تأكد من إدخال الرقم بالشكل الصحيح.';
+      } else if (error?.message?.includes('Network request failed')) {
+        errorMessage = 'مشكلة في الاتصال بالإنترنت. تحقق من اتصالك وحاول مرة أخرى.';
+      } else if (error?.message?.includes('rate limit')) {
+        errorMessage = 'تم تجاوز الحد المسموح. انتظر دقيقة وحاول مرة أخرى.';
+      }
+      
+      Alert.alert('خطأ', errorMessage);
     } finally {
       setLoading(false);
     }
