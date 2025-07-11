@@ -25,6 +25,7 @@ import MapView, { Marker } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, createUser, createStoreOwner, getBusinessTypes, getCities, getWorkingDays } from '../../lib/supabase';
 import { checkNetworkConnectivity } from '../../lib/test-connection';
+import { uploadStoreImage, uploadIdentityImage } from '../../lib/supabase-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -275,6 +276,11 @@ export default function StoreOwnerRegistrationScreen() {
       Alert.alert('خطأ', 'يرجى إدخال ساعات العمل');
       return false;
     }
+
+    if (!storeImage) {
+      Alert.alert('خطأ', 'يرجى إضافة صورة للمتجر (مطلوبة)');
+      return false;
+    }
     
     return true;
   };
@@ -318,6 +324,25 @@ export default function StoreOwnerRegistrationScreen() {
         console.error('Profile error:', profileError);
       }
 
+      // Upload store image (required)
+      if (!storeImage) {
+        Alert.alert('خطأ', 'يرجى إضافة صورة للمتجر قبل المتابعة');
+        return;
+      }
+
+      console.log('Uploading store image...');
+      const uploadResult = await uploadStoreImage(storeImage, user.id);
+      
+      let storeImageUrl = null;
+      if (uploadResult.success && uploadResult.url) {
+        storeImageUrl = uploadResult.url;
+        console.log('Store image uploaded successfully:', storeImageUrl);
+      } else {
+        console.error('Failed to upload store image:', uploadResult.error);
+        Alert.alert('خطأ', 'فشل في رفع صورة المتجر. يرجى المحاولة مرة أخرى أو اختيار صورة أخرى.');
+        return;
+      }
+
       // Create store owner record
       const { error: storeOwnerError } = await supabase
         .from('store_owners')
@@ -330,9 +355,11 @@ export default function StoreOwnerRegistrationScreen() {
           work_days: workingDays.join(','),
           open_time: openingTime.trim(),
           close_time: closingTime.trim(),
-          storefront_image: storeImage,
+          storefront_image: storeImageUrl,
           latitude: selectedLocation?.latitude,
-          longitude: selectedLocation?.longitude
+          longitude: selectedLocation?.longitude,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
 
       if (storeOwnerError) {
@@ -517,6 +544,7 @@ export default function StoreOwnerRegistrationScreen() {
 
       if (!result.canceled && result.assets[0]) {
         setStoreImage(result.assets[0].uri);
+        console.log('Store image selected from library:', result.assets[0].uri);
       }
     } catch (error) {
       console.error('خطأ في اختيار الصورة من المعرض:', error);
@@ -540,6 +568,7 @@ export default function StoreOwnerRegistrationScreen() {
 
       if (!result.canceled && result.assets[0]) {
         setStoreImage(result.assets[0].uri);
+        console.log('Store image captured with camera:', result.assets[0].uri);
       }
     } catch (error) {
       console.error('خطأ في التقاط الصورة:', error);
@@ -833,9 +862,9 @@ export default function StoreOwnerRegistrationScreen() {
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>صورة واجهة المتجر (اختياري)</Text>
+                  <Text style={styles.inputLabel}>صورة واجهة المتجر *</Text>
                   <Text style={styles.inputDescription}>
-                    أضف صورة لواجهة المتجر لمساعدة العملاء في التعرف على موقعك
+                    أضف صورة لواجهة المتجر لمساعدة العملاء في التعرف على موقعك (مطلوبة)
                   </Text>
                   <TouchableOpacity
                     style={styles.imagePickerButton}

@@ -23,6 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase, createUser, createMerchant, getBusinessTypes, getCities, getWorkingDays } from '../../lib/supabase';
 import { checkNetworkConnectivity } from '../../lib/test-connection';
+import { uploadIdentityImage, uploadBusinessImage, uploadMerchantStoreImage } from '../../lib/supabase-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -86,6 +87,7 @@ export default function MerchantRegistrationScreen() {
     openingTime: '',
     closingTime: '',
     idImage: null as string | null,
+    storeImage: null as string | null,
     wantsAds: false,
     offersDailyDeals: false
   });
@@ -181,8 +183,9 @@ export default function MerchantRegistrationScreen() {
         return;
       }
 
+      const imageType = type === 'idImage' ? 'صورة الهوية' : 'صورة المتجر';
       Alert.alert(
-        'اختيار صورة الهوية',
+        `اختيار ${imageType}`,
         'كيف تريد إضافة الصورة؟',
         [
           {
@@ -216,6 +219,7 @@ export default function MerchantRegistrationScreen() {
 
       if (!result.canceled && result.assets[0]) {
         handleInputChange(type, result.assets[0].uri);
+        console.log(`${type} image selected from library:`, result.assets[0].uri);
       }
     } catch (error) {
       console.error('خطأ في اختيار الصورة من المعرض:', error);
@@ -239,6 +243,7 @@ export default function MerchantRegistrationScreen() {
 
       if (!result.canceled && result.assets[0]) {
         handleInputChange(type, result.assets[0].uri);
+        console.log(`${type} image captured with camera:`, result.assets[0].uri);
       }
     } catch (error) {
       console.error('خطأ في التقاط الصورة:', error);
@@ -301,6 +306,17 @@ export default function MerchantRegistrationScreen() {
       return false;
     }
 
+    // التحقق من الصور المطلوبة
+    if (!formData.idImage) {
+      Alert.alert('خطأ', 'يرجى إضافة صورة الهوية (مطلوبة)');
+      return false;
+    }
+
+    if (!formData.storeImage) {
+      Alert.alert('خطأ', 'يرجى إضافة صورة المتجر (مطلوبة)');
+      return false;
+    }
+
     return true;
   };
 
@@ -345,6 +361,44 @@ export default function MerchantRegistrationScreen() {
         }
       }
 
+      // Upload identity image (required)
+      if (!formData.idImage) {
+        Alert.alert('خطأ', 'يرجى إضافة صورة الهوية قبل المتابعة');
+        return;
+      }
+
+      console.log('Uploading identity image...');
+      const identityUploadResult = await uploadIdentityImage(formData.idImage, user.id);
+      
+      let identityImageUrl = null;
+      if (identityUploadResult.success && identityUploadResult.url) {
+        identityImageUrl = identityUploadResult.url;
+        console.log('Identity image uploaded successfully:', identityImageUrl);
+      } else {
+        console.error('Failed to upload identity image:', identityUploadResult.error);
+        Alert.alert('خطأ', 'فشل في رفع صورة الهوية. يرجى المحاولة مرة أخرى أو اختيار صورة أخرى.');
+        return;
+      }
+
+      // Upload store image (required)
+      if (!formData.storeImage) {
+        Alert.alert('خطأ', 'يرجى إضافة صورة المتجر قبل المتابعة');
+        return;
+      }
+
+      console.log('Uploading store image...');
+      const storeUploadResult = await uploadMerchantStoreImage(formData.storeImage, user.id);
+      
+      let storeImageUrl = null;
+      if (storeUploadResult.success && storeUploadResult.url) {
+        storeImageUrl = storeUploadResult.url;
+        console.log('Store image uploaded successfully:', storeImageUrl);
+      } else {
+        console.error('Failed to upload store image:', storeUploadResult.error);
+        Alert.alert('خطأ', 'فشل في رفع صورة المتجر. يرجى المحاولة مرة أخرى أو اختيار صورة أخرى.');
+        return;
+      }
+
       // Create merchant record
       const { data, error } = await supabase
         .from('merchants')
@@ -359,10 +413,13 @@ export default function MerchantRegistrationScreen() {
             work_days: formData.workingDays.join(','),
             open_time: formData.openingTime,
             close_time: formData.closingTime,
-            identity_image: formData.idImage,
+            identity_image: identityImageUrl,
+            store_image: storeImageUrl,
             latitude: formData.latitude,
             longitude: formData.longitude,
-            abs: formData.wantsAds
+            abs: formData.wantsAds,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           }
         ]);
 
@@ -595,7 +652,7 @@ export default function MerchantRegistrationScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>صورة هوية صاحب العمل (اختياري)</Text>
+                <Text style={styles.label}>صورة هوية صاحب العمل *</Text>
                 <TouchableOpacity
                   style={styles.imagePickerButton}
                   onPress={() => pickImage('idImage')}
@@ -606,6 +663,23 @@ export default function MerchantRegistrationScreen() {
                     <>
                       <MaterialIcons name="add-a-photo" size={24} color="#007AFF" />
                       <Text style={styles.imagePickerText}>إضافة صورة الهوية</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>صورة المتجر أو المحل *</Text>
+                <TouchableOpacity
+                  style={styles.imagePickerButton}
+                  onPress={() => pickImage('storeImage')}
+                >
+                  {formData.storeImage ? (
+                    <Image source={{ uri: formData.storeImage }} style={styles.selectedImage} />
+                  ) : (
+                    <>
+                      <MaterialIcons name="add-a-photo" size={24} color="#007AFF" />
+                      <Text style={styles.imagePickerText}>إضافة صورة المتجر</Text>
                     </>
                   )}
                 </TouchableOpacity>
