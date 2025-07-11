@@ -19,6 +19,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker } from 'react-native-maps';
 import { supabase, createUser, createMerchant, getBusinessTypes, getCities, getWorkingDays } from '../../lib/supabase';
 import { checkNetworkConnectivity } from '../../lib/test-connection';
@@ -85,7 +86,6 @@ export default function MerchantRegistrationScreen() {
     openingTime: '',
     closingTime: '',
     idImage: null as string | null,
-    storeImage: null as string | null,
     wantsAds: false,
     offersDailyDeals: false
   });
@@ -174,23 +174,75 @@ export default function MerchantRegistrationScreen() {
 
   const pickImage = async (type: string) => {
     try {
-      // استخدام رابط لاختيار الصورة (سيتم تطويره لاحقاً)
+      // طلب الأذونات
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('خطأ', 'نحتاج إذن للوصول إلى المعرض لاختيار الصور');
+        return;
+      }
+
       Alert.alert(
-        'اختيار الصورة',
-        'سيتم إضافة هذه الميزة قريباً. يمكنك إضافة الصور لاحقاً من لوحة التحكم.',
+        'اختيار صورة الهوية',
+        'كيف تريد إضافة الصورة؟',
         [
           {
-            text: 'حسناً',
-            onPress: () => {
-              // إضافة صورة وهمية للاختبار
-              handleInputChange(type, 'https://via.placeholder.com/300x200?text=صورة+المتجر');
-            }
+            text: 'إلغاء',
+            style: 'cancel'
+          },
+          {
+            text: 'من المعرض',
+            onPress: () => selectImageFromLibrary(type)
+          },
+          {
+            text: 'التقاط صورة',
+            onPress: () => takeImageWithCamera(type)
           }
         ]
       );
     } catch (error) {
       console.error('خطأ في اختيار الصورة:', error);
-      Alert.alert('خطأ', 'لا يمكن اختيار الصورة');
+      Alert.alert('خطأ', 'حدث خطأ أثناء اختيار الصورة');
+    }
+  };
+
+  const selectImageFromLibrary = async (type: string) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        handleInputChange(type, result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('خطأ في اختيار الصورة من المعرض:', error);
+      Alert.alert('خطأ', 'لا يمكن اختيار الصورة من المعرض');
+    }
+  };
+
+  const takeImageWithCamera = async (type: string) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('خطأ', 'نحتاج إذن للوصول إلى الكاميرا لالتقاط الصور');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        handleInputChange(type, result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('خطأ في التقاط الصورة:', error);
+      Alert.alert('خطأ', 'لا يمكن التقاط الصورة');
     }
   };
 
@@ -308,7 +360,6 @@ export default function MerchantRegistrationScreen() {
             open_time: formData.openingTime,
             close_time: formData.closingTime,
             identity_image: formData.idImage,
-            store_image: formData.storeImage,
             latitude: formData.latitude,
             longitude: formData.longitude,
             abs: formData.wantsAds
@@ -560,22 +611,7 @@ export default function MerchantRegistrationScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>صورة المتجر (اختياري)</Text>
-                <TouchableOpacity
-                  style={styles.imagePickerButton}
-                  onPress={() => pickImage('storeImage')}
-                >
-                  {formData.storeImage ? (
-                    <Image source={{ uri: formData.storeImage }} style={styles.selectedImage} />
-                  ) : (
-                    <>
-                      <MaterialIcons name="store" size={24} color="#007AFF" />
-                      <Text style={styles.imagePickerText}>إضافة صورة المتجر</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
+
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>خيارات الإعلانات</Text>

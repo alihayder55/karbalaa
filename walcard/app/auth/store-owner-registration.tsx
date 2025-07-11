@@ -20,6 +20,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import MapView, { Marker } from 'react-native-maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, createUser, createStoreOwner, getBusinessTypes, getCities, getWorkingDays } from '../../lib/supabase';
@@ -67,6 +68,9 @@ export default function StoreOwnerRegistrationScreen() {
   const [workingDays, setWorkingDays] = useState<string[]>([]);
   const [openingTime, setOpeningTime] = useState('');
   const [closingTime, setClosingTime] = useState('');
+  
+  // صورة المتجر
+  const [storeImage, setStoreImage] = useState<string | null>(null);
   
   // حالة التطبيق
   const [loading, setLoading] = useState(false);
@@ -326,7 +330,7 @@ export default function StoreOwnerRegistrationScreen() {
           work_days: workingDays.join(','),
           open_time: openingTime.trim(),
           close_time: closingTime.trim(),
-          storefront_image: null,
+          storefront_image: storeImage,
           latitude: selectedLocation?.latitude,
           longitude: selectedLocation?.longitude
         });
@@ -469,25 +473,77 @@ export default function StoreOwnerRegistrationScreen() {
     }
   };
 
-  const pickImage = async (type: string) => {
+  const pickImage = async () => {
     try {
-      // استخدام رابط لاختيار الصورة (سيتم تطويره لاحقاً)
+      // طلب الأذونات
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('خطأ', 'نحتاج إذن للوصول إلى المعرض لاختيار الصور');
+        return;
+      }
+
       Alert.alert(
-        'اختيار الصورة',
-        'سيتم إضافة هذه الميزة قريباً. يمكنك إضافة الصور لاحقاً من لوحة التحكم.',
+        'اختيار صورة المتجر',
+        'كيف تريد إضافة الصورة؟',
         [
           {
-            text: 'حسناً',
-            onPress: () => {
-              // إضافة صورة وهمية للاختبار
-              handleInputChange(type, 'https://via.placeholder.com/300x200?text=صورة+المتجر');
-            }
+            text: 'إلغاء',
+            style: 'cancel'
+          },
+          {
+            text: 'من المعرض',
+            onPress: () => selectImageFromLibrary()
+          },
+          {
+            text: 'التقاط صورة',
+            onPress: () => takeImageWithCamera()
           }
         ]
       );
     } catch (error) {
       console.error('خطأ في اختيار الصورة:', error);
-      Alert.alert('خطأ', 'لا يمكن اختيار الصورة');
+      Alert.alert('خطأ', 'حدث خطأ أثناء اختيار الصورة');
+    }
+  };
+
+  const selectImageFromLibrary = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setStoreImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('خطأ في اختيار الصورة من المعرض:', error);
+      Alert.alert('خطأ', 'لا يمكن اختيار الصورة من المعرض');
+    }
+  };
+
+  const takeImageWithCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('خطأ', 'نحتاج إذن للوصول إلى الكاميرا لالتقاط الصور');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setStoreImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('خطأ في التقاط الصورة:', error);
+      Alert.alert('خطأ', 'لا يمكن التقاط الصورة');
     }
   };
 
@@ -525,7 +581,6 @@ export default function StoreOwnerRegistrationScreen() {
         // إضافة حالة للمنطقة إذا لزم الأمر
         break;
       case 'idImage':
-      case 'storeImage':
         // إضافة حالة للصور إذا لزم الأمر
         break;
       default:
@@ -767,6 +822,45 @@ export default function StoreOwnerRegistrationScreen() {
                       <MaterialIcons name="keyboard-arrow-down" size={24} color="#666" />
                     </TouchableOpacity>
                   </View>
+                </View>
+              </View>
+
+              {/* صورة المتجر */}
+              <View style={styles.section}>
+                <View style={styles.sectionTitle}>
+                  <MaterialIcons name="photo-camera" size={24} color="#FF6B35" />
+                  <Text style={styles.sectionTitleText}>صورة المتجر</Text>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>صورة واجهة المتجر (اختياري)</Text>
+                  <Text style={styles.inputDescription}>
+                    أضف صورة لواجهة المتجر لمساعدة العملاء في التعرف على موقعك
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.imagePickerButton}
+                    onPress={pickImage}
+                  >
+                    {storeImage ? (
+                      <View style={styles.selectedImageContainer}>
+                        <Image source={{ uri: storeImage }} style={styles.selectedImage} />
+                        <TouchableOpacity
+                          style={styles.removeImageButton}
+                          onPress={() => setStoreImage(null)}
+                        >
+                          <MaterialIcons name="close" size={20} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={styles.imagePickerContent}>
+                        <MaterialIcons name="add-a-photo" size={40} color="#FF6B35" />
+                        <Text style={styles.imagePickerText}>إضافة صورة المتجر</Text>
+                        <Text style={styles.imagePickerSubtext}>
+                          اضغط لاختيار من المعرض أو التقاط صورة جديدة
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -1540,27 +1634,61 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   imagePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#f8f9fa',
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: '#FF6B35',
     borderStyle: 'dashed',
     borderRadius: 12,
     padding: 20,
     marginTop: 8,
+    minHeight: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePickerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   imagePickerText: {
-    color: '#007AFF',
+    color: '#FF6B35',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  imagePickerSubtext: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  inputDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+    textAlign: 'right',
+    lineHeight: 20,
+  },
+  selectedImageContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedImage: {
-    width: 100,
+    width: 150,
     height: 100,
     borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#dc3545',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   checkboxContainer: {
     flexDirection: 'row',
