@@ -346,12 +346,10 @@ export default function MerchantRegistrationScreen() {
           .insert([
             {
               id: user.id,
-              full_name: formData.fullName,
+              full_name: fullName,
               phone_number: formData.phoneNumber,
               user_type: 'merchant',
-              is_approved: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              is_approved: false
             }
           ]);
 
@@ -417,9 +415,7 @@ export default function MerchantRegistrationScreen() {
             store_image: storeImageUrl,
             latitude: formData.latitude,
             longitude: formData.longitude,
-            abs: formData.wantsAds,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            abs: formData.wantsAds
           }
         ]);
 
@@ -427,14 +423,16 @@ export default function MerchantRegistrationScreen() {
         throw error;
       }
 
-      // توجيه المستخدم إلى صفحة انتظار الموافقة
-      router.replace({
-        pathname: '/auth/pending-approval',
-        params: { 
-          userType: 'merchant',
-          fullName: formData.fullName
-        }
-      });
+      Alert.alert(
+        'تم التسجيل بنجاح',
+        'تم تسجيل طلبك بنجاح. مرحباً بك في واجهة التاجر!',
+        [
+          {
+            text: 'موافق',
+            onPress: () => router.replace('/(tabs)')
+          }
+        ]
+      );
     } catch (error: any) {
       console.error('Merchant registration error:', error);
       Alert.alert('خطأ', 'حدث خطأ أثناء التسجيل. حاول مرة أخرى.');

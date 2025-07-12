@@ -7,6 +7,7 @@ import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/lib/supabase';
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -40,10 +41,10 @@ export default function RootLayout() {
       I18nManager.forceRTL(true);
     }
 
-    // Initialize AsyncStorage safely
-    const initializeAsyncStorage = async () => {
+    // Initialize AsyncStorage and session management
+    const initializeApp = async () => {
       try {
-        console.log('Starting AsyncStorage initialization...');
+        console.log('Starting app initialization...');
         
         // Test AsyncStorage by setting and getting a test value
         await AsyncStorage.setItem('test_key', 'test_value');
@@ -55,17 +56,35 @@ export default function RootLayout() {
         } else {
           console.log('AsyncStorage initialized successfully');
         }
+
+        // Initialize Supabase session persistence
+        // This ensures the session persists across app restarts
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('Found existing session, user remains logged in');
+        }
+
+        // Listen for auth state changes
+        supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN') {
+            console.log('User signed in');
+          } else if (event === 'SIGNED_OUT') {
+            console.log('User signed out');
+          } else if (event === 'TOKEN_REFRESHED') {
+            console.log('Token refreshed');
+          }
+        });
         
         // Mark as initialized
         setIsInitialized(true);
       } catch (error) {
-        console.error('AsyncStorage initialization error:', error);
+        console.error('App initialization error:', error);
         // Still mark as initialized to prevent blocking the app
         setIsInitialized(true);
       }
     };
 
-    initializeAsyncStorage();
+    initializeApp();
   }, []);
 
   const [loaded, error] = useFonts({
@@ -107,7 +126,15 @@ export default function RootLayout() {
         />
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/register" />
+        <Stack.Screen name="auth/merchant-registration" />
+        <Stack.Screen name="auth/store-owner-registration" />
+        <Stack.Screen name="auth/unified-auth" />
+        <Stack.Screen name="auth/unified-login" />
+        <Stack.Screen name="auth/user-type-selection" />
+        <Stack.Screen name="auth/verify" />
+        <Stack.Screen name="auth/pending-approval" />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="store-owner" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

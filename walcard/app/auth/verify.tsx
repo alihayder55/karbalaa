@@ -17,6 +17,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { checkNetworkConnectivity } from '../../lib/test-connection';
+import { loginUser } from '../../lib/auth-helpers';
 
 const { width, height } = Dimensions.get('window');
 
@@ -80,7 +81,7 @@ export default function VerifyScreen() {
 
     try {
       setLoading(true);
-      console.log('Verifying OTP:', { phone, otp: cleanOtp, isRegistration: params.isRegistration });
+      console.log('🔐 Verifying OTP:', { phone, otp: cleanOtp, isRegistration: params.isRegistration });
 
       // Try WhatsApp verification first
       let { data, error } = await supabase.auth.verifyOtp({
@@ -101,7 +102,7 @@ export default function VerifyScreen() {
         error = smsResult.error;
       }
 
-      console.log('OTP verification response:', { 
+      console.log('📱 OTP verification response:', { 
         hasData: !!data, 
         hasError: !!error,
         errorMessage: error?.message,
@@ -109,11 +110,11 @@ export default function VerifyScreen() {
       });
 
       if (error) {
-        console.error('OTP verification error:', error);
+        console.error('❌ OTP verification error:', error);
         throw error;
       }
 
-      console.log('OTP verified successfully');
+      console.log('✅ OTP verified successfully');
       
       // Check if this is a registration flow
       if (params.isRegistration === 'true') {
@@ -131,71 +132,84 @@ export default function VerifyScreen() {
                   fullName: params.name as string
                 }
               })
-          }
+            }
           ]
         );
       } else {
-        // For existing users, check approval status
-        try {
-          console.log('🔍 Checking user approval status for:', phone);
+        // For existing users, create session and redirect
+        console.log('🔍 Creating session for existing user:', phone);
+        
+        // Use the loginUser function to create a proper session
+        const loginResult = await loginUser(phone);
+        
+        if (loginResult.success && loginResult.session) {
+          console.log('✅ Session created successfully for user:', loginResult.session.user_type);
           
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('full_name, user_type, is_approved')
-            .eq('phone_number', phone)
-            .single();
-
-          console.log('📊 User data:', userData, 'Error:', userError);
-
-          if (!userError && userData) {
-            const userInfo = userData;
-            console.log('👤 User info:', userInfo);
-            
-            if (!userInfo.is_approved) {
-              console.log('⏳ User not approved, redirecting to pending approval');
-              // User is not approved, redirect to pending approval
-              Alert.alert(
-                'حساب قيد المراجعة',
-                'تم تسجيل الدخول بنجاح، لكن حسابك قيد المراجعة. سيتم إشعارك عند الموافقة عليه.',
-                [
-                  {
-                    text: 'موافق',
-                    onPress: () => router.replace({
-                      pathname: '/auth/pending-approval',
-                      params: { 
-                        userType: userInfo.user_type,
-                        fullName: userInfo.full_name
-                      }
-                    })
-                  }
-                ]
-              );
-              return;
-            } else {
-              console.log('✅ User approved, proceeding to main app');
-            }
+          // Redirect based on user type
+          if (loginResult.session.user_type === 'store_owner') {
+            Alert.alert(
+              'نجاح', 
+              'تم تسجيل الدخول بنجاح',
+              [
+                {
+                  text: 'متابعة',
+                  onPress: () => router.replace('/store-owner')
+                }
+              ]
+            );
+          } else if (loginResult.session.user_type === 'merchant') {
+            Alert.alert(
+              'نجاح', 
+              'تم تسجيل الدخول بنجاح',
+              [
+                {
+                  text: 'متابعة',
+                  onPress: () => router.replace('/(tabs)')
+                }
+              ]
+            );
           } else {
-            console.log('❌ Error fetching user data or user not found');
+            // Admin or other user types
+            Alert.alert(
+              'نجاح', 
+              'تم تسجيل الدخول بنجاح',
+              [
+                {
+                  text: 'متابعة',
+                  onPress: () => router.replace('/(tabs)')
+                }
+              ]
+            );
           }
-        } catch (error) {
-          console.error('Error checking user status:', error);
+        } else if (loginResult.needsApproval) {
+          // User account not approved
+          Alert.alert(
+            'حساب قيد المراجعة',
+            'تم تسجيل الدخول بنجاح، لكن حسابك قيد المراجعة. سيتم إشعارك عند الموافقة عليه.',
+            [
+              {
+                text: 'موافق',
+                onPress: () => router.replace('/auth/pending-approval')
+              }
+            ]
+          );
+        } else {
+          // Login failed
+          console.error('❌ Login failed:', loginResult.error);
+          Alert.alert(
+            'خطأ',
+            loginResult.error || 'حدث خطأ أثناء تسجيل الدخول',
+            [
+              {
+                text: 'موافق',
+                onPress: () => router.replace('/onboarding/welcome')
+              }
+            ]
+          );
         }
-
-        // User is approved or error occurred, go to main app
-        console.log('🚀 Redirecting to main app');
-        Alert.alert(
-          'نجاح', 
-          'تم تسجيل الدخول بنجاح',
-          [
-            {
-              text: 'متابعة',
-              onPress: () => router.replace('/(tabs)')
-            }
-          ]
-        );
       }
     } catch (error: any) {
-      console.error('OTP verification error:', error);
+      console.error('💥 OTP verification error:', error);
       let errorMessage = 'حدث خطأ أثناء التحقق من الرمز';
       
       if (error.message?.includes('Invalid OTP')) {

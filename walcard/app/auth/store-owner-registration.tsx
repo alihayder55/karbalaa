@@ -310,14 +310,12 @@ export default function StoreOwnerRegistrationScreen() {
       // Create or update profile
       const { error: profileError } = await supabase
         .from('users')
-        .upsert({
+        .insert({
           id: user.id,
           full_name: ownerName.trim(),
           phone_number: phoneNumbers[0],
           user_type: 'store_owner',
-          is_approved: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          is_approved: false
         });
 
       if (profileError) {
@@ -358,8 +356,6 @@ export default function StoreOwnerRegistrationScreen() {
           storefront_image: storeImageUrl,
           latitude: selectedLocation?.latitude,
           longitude: selectedLocation?.longitude,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
         });
 
       if (storeOwnerError) {
@@ -370,17 +366,11 @@ export default function StoreOwnerRegistrationScreen() {
 
       Alert.alert(
         'تم التسجيل بنجاح',
-        'تم تسجيل طلبك بنجاح. سيتم مراجعته من قبل فريقنا وسيتم التواصل معك قريباً.',
+        'تم تسجيل طلبك بنجاح. مرحباً بك في واجهة صاحب المحل!',
         [
           {
             text: 'موافق',
-            onPress: () => router.replace({
-              pathname: '/auth/pending-approval',
-              params: { 
-                userType: 'store_owner',
-                fullName: ownerName.trim()
-              }
-            })
+            onPress: () => router.replace('/store-owner')
           }
         ]
       );
