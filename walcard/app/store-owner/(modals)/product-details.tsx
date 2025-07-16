@@ -3,13 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Image,
   Alert,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
@@ -23,7 +24,7 @@ interface Product {
   price: number;
   discount_price?: number;
   image_url?: string;
-  available_quantity: number;
+  is_active: boolean;
   category_id: string;
   merchant_id: string;
 }
@@ -55,7 +56,7 @@ export default function StoreOwnerProductDetails() {
           price,
           discount_price,
           image_url,
-          available_quantity,
+          is_active,
           category_id,
           merchant_id
         `)
@@ -74,11 +75,6 @@ export default function StoreOwnerProductDetails() {
 
   const handleAddToCart = async () => {
     if (!product) return;
-
-    if (quantity > product.available_quantity) {
-      Alert.alert('خطأ', 'الكمية المطلوبة غير متوفرة');
-      return;
-    }
 
     try {
       setAddingToCart(true);
@@ -107,11 +103,6 @@ export default function StoreOwnerProductDetails() {
   const handleBuyNow = async () => {
     if (!product) return;
 
-    if (quantity > product.available_quantity) {
-      Alert.alert('خطأ', 'الكمية المطلوبة غير متوفرة');
-      return;
-    }
-
     try {
       // Add to cart first
       await cartManager.addToCart(product.id, quantity);
@@ -133,9 +124,10 @@ export default function StoreOwnerProductDetails() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6B35" />
+          <ActivityIndicator size="large" color="#40E0D0" />
           <Text style={styles.loadingText}>جاري التحميل...</Text>
         </View>
       </SafeAreaView>
@@ -144,12 +136,13 @@ export default function StoreOwnerProductDetails() {
 
   if (!product) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.errorContainer}>
           <MaterialIcons name="error" size={80} color="#ccc" />
           <Text style={styles.errorTitle}>خطأ</Text>
           <Text style={styles.errorText}>لم يتم العثور على المنتج</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push('/store-owner')}>
             <Text style={styles.backButtonText}>العودة</Text>
           </TouchableOpacity>
         </View>
@@ -158,14 +151,15 @@ export default function StoreOwnerProductDetails() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+        <TouchableOpacity onPress={() => router.push('/store-owner')}>
+          <MaterialIcons name="arrow-back" size={24} color="#40E0D0" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>تفاصيل المنتج</Text>
         <TouchableOpacity onPress={() => router.push('/store-owner/cart')}>
-          <MaterialIcons name="shopping-cart" size={24} color="#333" />
+          <MaterialIcons name="shopping-cart" size={24} color="#40E0D0" />
         </TouchableOpacity>
       </View>
 
@@ -176,7 +170,7 @@ export default function StoreOwnerProductDetails() {
             <Image source={{ uri: product.image_url }} style={styles.productImage} />
           ) : (
             <View style={styles.imagePlaceholder}>
-              <MaterialIcons name="image" size={80} color="#ccc" />
+              <MaterialIcons name="inventory" size={80} color="#666" />
               <Text style={styles.imagePlaceholderText}>لا توجد صورة</Text>
             </View>
           )}
@@ -187,6 +181,10 @@ export default function StoreOwnerProductDetails() {
               productId={product.id} 
               size={24}
               showToast={true}
+              key={`favorite-${product.id}`}
+              onToggle={(isFavorite) => {
+                console.log(`Favorite toggled for product ${product.id}: ${isFavorite}`);
+              }}
             />
           </View>
 
@@ -194,7 +192,7 @@ export default function StoreOwnerProductDetails() {
           {product.discount_price && (
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>
-                -{getDiscountPercentage(product.price, product.discount_price)}%
+                {getDiscountPercentage(product.price, product.discount_price)}% خصم
               </Text>
             </View>
           )}
@@ -204,43 +202,37 @@ export default function StoreOwnerProductDetails() {
         <View style={styles.productInfo}>
           <Text style={styles.productName}>{product.name}</Text>
           
-          {/* Price */}
           <View style={styles.priceContainer}>
             {product.discount_price ? (
               <>
                 <Text style={styles.discountPrice}>
-                  {formatPrice(product.discount_price)}
+                  {formatPrice(product.discount_price)} د.ع
                 </Text>
                 <Text style={styles.originalPrice}>
-                  {formatPrice(product.price)}
+                  {formatPrice(product.price)} د.ع
                 </Text>
               </>
             ) : (
               <Text style={styles.price}>
-                {formatPrice(product.price)}
+                {formatPrice(product.price)} د.ع
               </Text>
             )}
           </View>
 
-          {/* Availability */}
           <View style={styles.availabilityContainer}>
             <MaterialIcons 
-              name="inventory" 
+              name={product.is_active ? "check-circle" : "cancel"} 
               size={20} 
-              color={product.available_quantity > 0 ? "#28A745" : "#DC3545"} 
+              color={product.is_active ? "#28A745" : "#ff4757"} 
             />
             <Text style={[
               styles.availabilityText,
-              { color: product.available_quantity > 0 ? "#28A745" : "#DC3545" }
+              { color: product.is_active ? "#28A745" : "#ff4757" }
             ]}>
-              {product.available_quantity > 0 
-                ? `متوفر (${product.available_quantity} قطعة)` 
-                : 'غير متوفر'
-              }
+              {product.is_active ? 'متوفر' : 'غير متوفر'}
             </Text>
           </View>
 
-          {/* Description */}
           {product.description && (
             <View style={styles.descriptionContainer}>
               <Text style={styles.descriptionTitle}>الوصف</Text>
@@ -248,62 +240,52 @@ export default function StoreOwnerProductDetails() {
             </View>
           )}
 
-          {/* Quantity Selector */}
-          {product.available_quantity > 0 && (
-            <View style={styles.quantityContainer}>
-              <Text style={styles.quantityLabel}>الكمية:</Text>
-              <View style={styles.quantitySelector}>
-                <TouchableOpacity
-                  style={styles.quantityButton}
-                  onPress={() => setQuantity(Math.max(1, quantity - 1))}
-                >
-                  <MaterialIcons name="remove" size={20} color="#FF6B35" />
-                </TouchableOpacity>
-                <Text style={styles.quantityText}>{quantity}</Text>
-                <TouchableOpacity
-                  style={styles.quantityButton}
-                  onPress={() => setQuantity(Math.min(product.available_quantity, quantity + 1))}
-                >
-                  <MaterialIcons name="add" size={20} color="#FF6B35" />
-                </TouchableOpacity>
-              </View>
+          <View style={styles.quantityContainer}>
+            <Text style={styles.quantityLabel}>الكمية:</Text>
+            <View style={styles.quantitySelector}>
+              <TouchableOpacity 
+                style={styles.quantityButton}
+                onPress={() => setQuantity(Math.max(1, quantity - 1))}
+              >
+                <MaterialIcons name="remove" size={20} color="#666" />
+              </TouchableOpacity>
+              <Text style={styles.quantityText}>{quantity}</Text>
+              <TouchableOpacity 
+                style={styles.quantityButton}
+                onPress={() => setQuantity(quantity + 1)}
+              >
+                <MaterialIcons name="add" size={20} color="#666" />
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
         </View>
-      </ScrollView>
-
-      {/* Action Buttons */}
-      {product.available_quantity > 0 && (
-        <View style={styles.actionsContainer}>
+        
+        {/* Action Buttons - Inside Page Content */}
+        <View style={styles.actionButtonsContainer}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.addToCartButton]}
+            style={styles.addToCartButton}
             onPress={handleAddToCart}
-            disabled={addingToCart}
+            disabled={addingToCart || !product.is_active}
           >
-            {addingToCart ? (
-              <ActivityIndicator size="small" color="#FF6B35" />
-            ) : (
-              <>
-                <MaterialIcons name="add-shopping-cart" size={20} color="#FF6B35" />
-                <Text style={[styles.actionButtonText, styles.addToCartText]}>
-                  إضافة للسلة
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.buyNowButton]}
-            onPress={handleBuyNow}
-            disabled={addingToCart}
-          >
-            <MaterialIcons name="shopping-cart-checkout" size={20} color="#fff" />
-            <Text style={[styles.actionButtonText, styles.buyNowText]}>
-              اشتري الآن
+            <MaterialIcons name="shopping-cart" size={32} color="#fff" />
+            <Text style={styles.addToCartText}>
+              {addingToCart ? 'جاري الإضافة...' : 'إضافة إلى السلة'}
             </Text>
           </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.buyNowButton}
+            onPress={handleBuyNow}
+            disabled={!product.is_active}
+          >
+            <MaterialIcons name="shopping-cart-checkout" size={32} color="#fff" />
+            <Text style={styles.buyNowText}>شراء الآن</Text>
+          </TouchableOpacity>
         </View>
-      )}
+        
+        {/* Bottom Spacing for Tab Bar */}
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -311,7 +293,21 @@ export default function StoreOwnerProductDetails() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
   loadingContainer: {
     flex: 1,
@@ -319,9 +315,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
     color: '#666',
+    marginTop: 12,
   },
   errorContainer: {
     flex: 1,
@@ -333,40 +329,25 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 24,
+    marginBottom: 12,
   },
   errorText: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
   },
   backButton: {
-    backgroundColor: '#FF6B35',
-    paddingHorizontal: 24,
+    backgroundColor: '#40E0D0',
+    paddingHorizontal: 32,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   backButtonText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  header: {
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
   },
   scrollView: {
     flex: 1,
@@ -374,7 +355,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     height: 300,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
   },
   productImage: {
     width: '100%',
@@ -386,84 +367,78 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
   },
   imagePlaceholderText: {
-    marginTop: 8,
     fontSize: 16,
-    color: '#999',
+    color: '#666',
+    marginTop: 12,
   },
   favoriteButtonContainer: {
     position: 'absolute',
     top: 16,
     right: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 25,
-    width: 50,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 3,
   },
   discountBadge: {
     position: 'absolute',
     top: 16,
     left: 16,
-    backgroundColor: '#DC3545',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#ff4757',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 8,
   },
   discountText: {
-    color: '#fff',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
+    color: '#fff',
   },
   productInfo: {
-    backgroundColor: '#fff',
     padding: 20,
-    marginTop: 8,
   },
   productName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
-    lineHeight: 32,
+    marginBottom: 16,
+    lineHeight: 30,
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    gap: 12,
   },
   price: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#40E0D0',
   },
   discountPrice: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#FF6B35',
-    marginRight: 12,
+    color: '#40E0D0',
   },
   originalPrice: {
-    fontSize: 20,
+    fontSize: 18,
     color: '#999',
     textDecorationLine: 'line-through',
   },
   availabilityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
+    gap: 8,
   },
   availabilityText: {
     fontSize: 16,
-    marginLeft: 8,
     fontWeight: '600',
   },
   descriptionContainer: {
@@ -484,27 +459,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 24,
   },
   quantityLabel: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#333',
   },
   quantitySelector: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
-    borderRadius: 25,
+    borderRadius: 24,
     paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   quantityButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -516,43 +492,88 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginHorizontal: 16,
-    minWidth: 32,
+    minWidth: 30,
     textAlign: 'center',
   },
-  actionsContainer: {
-    backgroundColor: '#fff',
-    flexDirection: 'row',
+  actionButtons: {
     padding: 20,
-    gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#f0f0f0',
+    gap: 16,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 2,
+  actionButtonsContainer: {
+    padding: 20,
+    gap: 20,
+    backgroundColor: '#fff',
+    marginTop: 20,
+  },
+  fixedActionButtons: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    gap: 16,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   addToCartButton: {
-    backgroundColor: '#fff',
-    borderColor: '#FF6B35',
-  },
-  buyNowButton: {
-    backgroundColor: '#FF6B35',
-    borderColor: '#FF6B35',
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    backgroundColor: '#40E0D0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    borderRadius: 20,
+    gap: 16,
+    shadowColor: '#40E0D0',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 16,
+    borderWidth: 3,
+    borderColor: '#40E0D0',
   },
   addToCartText: {
-    color: '#FF6B35',
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  buyNowButton: {
+    backgroundColor: '#1ABC9C',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    borderRadius: 20,
+    gap: 16,
+    shadowColor: '#1ABC9C',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 16,
+    borderWidth: 3,
+    borderColor: '#1ABC9C',
   },
   buyNowText: {
+    fontSize: 22,
+    fontWeight: 'bold',
     color: '#fff',
+    letterSpacing: 0.5,
+  },
+  bottomSpacing: {
+    height: 120,
   },
 }); 

@@ -1,0 +1,112 @@
+{
+  "app": {
+    "name": "والكارد",
+    "description": "تطبيق تسوق ذكي"
+  },
+  "navigation": {
+    "home": "الرئيسية",
+    "orders": "الطلبات",
+    "search": "البحث",
+    "favorites": "المفضلة",
+    "profile": "الملف الشخصي",
+    "cart": "السلة"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "error": "خطأ",
+    "success": "نجح",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "save": "حفظ",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "add": "إضافة",
+    "remove": "إزالة",
+    "close": "إغلاق",
+    "open": "فتح",
+    "search": "بحث",
+    "filter": "تصفية",
+    "sort": "ترتيب",
+    "refresh": "تحديث",
+    "retry": "إعادة المحاولة",
+    "ok": "موافق",
+    "yes": "نعم",
+    "no": "لا"
+  },
+  "products": {
+    "title": "المنتجات",
+    "details": "تفاصيل المنتج",
+    "price": "السعر",
+    "quantity": "الكمية",
+    "addToCart": "إضافة للسلة",
+    "buyNow": "شراء الآن",
+    "outOfStock": "نفذت الكمية",
+    "inStock": "متوفر",
+    "discount": "خصم",
+    "originalPrice": "السعر الأصلي",
+    "discountPrice": "سعر الخصم"
+  },
+  "orders": {
+    "title": "الطلبات",
+    "orderDetails": "تفاصيل الطلب",
+    "orderNumber": "رقم الطلب",
+    "orderDate": "تاريخ الطلب",
+    "totalPrice": "المجموع الكلي",
+    "status": "الحالة",
+    "pending": "في الانتظار",
+    "confirmed": "مؤكد",
+    "preparing": "قيد التحضير",
+    "shipped": "تم الشحن",
+    "delivered": "تم التوصيل",
+    "cancelled": "ملغي"
+  },
+  "cart": {
+    "title": "سلة المشتريات",
+    "empty": "السلة فارغة",
+    "checkout": "إتمام الطلب",
+    "total": "المجموع",
+    "items": "المنتجات",
+    "removeItem": "إزالة المنتج",
+    "updateQuantity": "تحديث الكمية"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "register": "تسجيل حساب جديد",
+    "logout": "تسجيل الخروج",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "phone": "رقم الهاتف",
+    "fullName": "الاسم الكامل",
+    "forgotPassword": "نسيت كلمة المرور",
+    "resetPassword": "إعادة تعيين كلمة المرور"
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "editProfile": "تعديل الملف الشخصي",
+    "changePassword": "تغيير كلمة المرور",
+    "settings": "الإعدادات",
+    "help": "المساعدة",
+    "about": "حول التطبيق",
+    "notifications": "الإشعارات"
+  },
+  "search": {
+    "placeholder": "ابحث عن المنتجات...",
+    "noResults": "لا توجد نتائج",
+    "categories": "الفئات",
+    "filters": "المرشحات",
+    "sortBy": "ترتيب حسب",
+    "priceLowToHigh": "السعر: من الأقل للأعلى",
+    "priceHighToLow": "السعر: من الأعلى للأقل",
+    "nameAZ": "الاسم: أ-ي",
+    "nameZA": "الاسم: ي-أ"
+  },
+  "favorites": {
+    "title": "المفضلة",
+    "empty": "لا توجد منتجات في المفضلة",
+    "addToFavorites": "إضافة للمفضلة",
+    "removeFromFavorites": "إزالة من المفضلة"
+  }
+} 

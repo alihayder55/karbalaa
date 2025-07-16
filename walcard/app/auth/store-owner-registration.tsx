@@ -632,7 +632,7 @@ export default function StoreOwnerRegistrationScreen() {
             <View style={styles.header}>
               <View style={styles.storeOwnerContainer}>
                 <View style={styles.storeOwnerIconContainer}>
-                  <MaterialIcons name="store" size={80} color="#FF6B35" />
+                  <MaterialIcons name="store" size={80} color="#40E0D0" />
                   <View style={styles.storeOwnerIconBackground} />
                 </View>
                 <Text style={styles.storeOwnerTitle}>تسجيل صاحب المحل</Text>
@@ -646,7 +646,7 @@ export default function StoreOwnerRegistrationScreen() {
               {/* معلومات صاحب المحل */}
               <View style={styles.section}>
                 <View style={styles.sectionTitle}>
-                  <MaterialIcons name="person" size={24} color="#FF6B35" />
+                  <MaterialIcons name="person" size={24} color="#40E0D0" />
                   <Text style={styles.sectionTitleText}>معلومات صاحب المحل</Text>
                 </View>
 
@@ -717,7 +717,7 @@ export default function StoreOwnerRegistrationScreen() {
               {/* معلومات المحل */}
               <View style={styles.section}>
                 <View style={styles.sectionTitle}>
-                  <MaterialIcons name="store" size={24} color="#FF6B35" />
+                  <MaterialIcons name="store" size={24} color="#40E0D0" />
                   <Text style={styles.sectionTitleText}>معلومات المحل</Text>
                 </View>
 
@@ -781,7 +781,7 @@ export default function StoreOwnerRegistrationScreen() {
                       style={styles.mapButton}
                       onPress={openMapModal}
                     >
-                      <MaterialIcons name="map" size={24} color="#FF6B35" />
+                      <MaterialIcons name="map" size={24} color="#40E0D0" />
                     </TouchableOpacity>
                   </View>
                   {location && (
@@ -1655,7 +1655,7 @@ const styles = StyleSheet.create({
   imagePickerButton: {
     backgroundColor: '#f8f9fa',
     borderWidth: 2,
-    borderColor: '#FF6B35',
+    borderColor: '#40E0D0',
     borderStyle: 'dashed',
     borderRadius: 12,
     padding: 20,
@@ -1669,7 +1669,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   imagePickerText: {
-    color: '#FF6B35',
+    color: '#40E0D0',
     fontSize: 16,
     fontWeight: '600',
     marginTop: 8,
@@ -1719,13 +1719,13 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: '#40E0D0',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
   },
   checkboxChecked: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#40E0D0',
   },
   checkboxLabel: {
     fontSize: 16,

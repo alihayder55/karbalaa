@@ -1,297 +1,254 @@
-import React, { useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Dimensions, 
-  TouchableOpacity, 
-  Animated, 
-  SafeAreaView, 
-  Platform
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Colors } from '../../constants/Colors';
+import { useColorScheme } from '../../hooks/useColorScheme';
 
 const { width, height } = Dimensions.get('window');
 
+const welcomeData = [
+  {
+    id: 1,
+    title: 'مرحباً بك في وولكارد',
+    subtitle: 'منصة التسوق الأولى في العراق',
+    description: 'اكتشف آلاف المنتجات من أفضل المتاجر المحلية',
+    icon: 'shopping-bag',
+    color: '#40E0D0',
+  },
+  {
+    id: 2,
+    title: 'تسوق بسهولة',
+    subtitle: 'منتجك المفضل على بعد نقرة واحدة',
+    description: 'تصفح الفئات المختلفة وابحث عن ما تحتاجه بسهولة',
+    icon: 'search',
+    color: '#48C9B0',
+  },
+  {
+    id: 3,
+    title: 'توصيل سريع',
+    subtitle: 'من باب المتجر إلى باب منزلك',
+    description: 'احصل على منتجاتك بأسرع وقت ممكن',
+    icon: 'local-shipping',
+    color: '#1ABC9C',
+  },
+];
+
 export default function WelcomeScreen() {
   const router = useRouter();
-  
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    // Start animations when component mounts
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(logoScale, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+  const handleNext = () => {
+    if (currentIndex < welcomeData.length - 1) {
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
+      scrollViewRef.current?.scrollTo({
+        x: nextIndex * width,
+        animated: true,
+      });
+    } else {
+      handleGetStarted();
+    }
+  };
+
+  const handleSkip = () => {
+    handleGetStarted();
+  };
+
+  const handleGetStarted = () => {
+    router.push('/auth/unified-auth');
+  };
+
+  const handleScroll = (event: any) => {
+    const contentOffset = event.nativeEvent.contentOffset.x;
+    const index = Math.round(contentOffset / width);
+    setCurrentIndex(index);
+  };
+
+  const renderWelcomeSlide = (item: any, index: number) => (
+    <View key={item.id} style={styles.slide}>
+      <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+        <MaterialIcons name={item.icon as any} size={80} color="#fff" />
+      </View>
+      
+      <Text style={[styles.title, { color: colors.text }]}>{item.title}</Text>
+      <Text style={[styles.subtitle, { color: colors.primary }]}>{item.subtitle}</Text>
+      <Text style={[styles.description, { color: colors.icon }]}>{item.description}</Text>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <StatusBar style="dark" />
-        
-        {/* Logo Section */}
-        <Animated.View 
-          style={[
-            styles.logoSection,
-            {
-              opacity: fadeAnim,
-              transform: [{ scale: logoScale }]
-            }
-          ]}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={[styles.skipButton, { backgroundColor: colors.surface }]}
+          onPress={handleSkip}
         >
-          <View style={styles.logoContainer}>
-            <MaterialIcons name="store" size={80} color="#007AFF" />
-          </View>
-          <Text style={styles.appName}>ولكارد</Text>
-          <Text style={styles.appTagline}>منصة التجارة بالجملة الذكية</Text>
-        </Animated.View>
+          <Text style={[styles.skipText, { color: colors.text }]}>تخطي</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Welcome Message */}
-        <Animated.View 
-          style={[
-            styles.welcomeSection,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}
+      {/* Slides */}
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        style={styles.scrollView}
+      >
+        {welcomeData.map((item, index) => renderWelcomeSlide(item, index))}
+      </ScrollView>
+
+      {/* Pagination */}
+      <View style={styles.paginationContainer}>
+        <View style={styles.paginationDots}>
+          {welcomeData.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.paginationDot,
+                {
+                  backgroundColor: index === currentIndex ? colors.primary : colors.border,
+                  width: index === currentIndex ? 24 : 8,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Bottom Actions */}
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity
+          style={[styles.nextButton, { backgroundColor: colors.primary }]}
+          onPress={handleNext}
         >
-          <Text style={styles.welcomeTitle}>مرحباً بك في ولكارد</Text>
-          <Text style={styles.welcomeSubtitle}>
-            منصة رقمية متطورة تربط التجار بأصحاب المحلات لتسهيل عملية التجارة بالجملة
+          <Text style={styles.nextButtonText}>
+            {currentIndex === welcomeData.length - 1 ? 'ابدأ الآن' : 'التالي'}
           </Text>
-        </Animated.View>
-
-        {/* Features */}
-        <Animated.View 
-          style={[
-            styles.featuresSection,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}
-        >
-          <View style={styles.featureRow}>
-            <View style={styles.featureBubble}>
-              <View style={[styles.iconContainer, { backgroundColor: '#28a74520' }]}>
-                <MaterialIcons name="handshake" size={20} color="#28a745" />
-              </View>
-              <Text style={styles.featureText}>تواصل مباشر</Text>
-            </View>
-            <View style={styles.featureBubble}>
-              <View style={[styles.iconContainer, { backgroundColor: '#ff6b3520' }]}>
-                <MaterialIcons name="price-check" size={20} color="#ff6b35" />
-              </View>
-              <Text style={styles.featureText}>أسعار تنافسية</Text>
-            </View>
-          </View>
-          
-          <View style={styles.featureRow}>
-            <View style={styles.featureBubble}>
-              <View style={[styles.iconContainer, { backgroundColor: '#6f42c120' }]}>
-                <MaterialIcons name="local-shipping" size={20} color="#6f42c1" />
-              </View>
-              <Text style={styles.featureText}>توصيل سريع</Text>
-            </View>
-            <View style={styles.featureBubble}>
-              <View style={[styles.iconContainer, { backgroundColor: '#dc354520' }]}>
-                <MaterialIcons name="security" size={20} color="#dc3545" />
-              </View>
-              <Text style={styles.featureText}>أمان تام</Text>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* Action Button */}
-        <Animated.View 
-          style={[
-            styles.buttonContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}
-        >
-          <TouchableOpacity 
-            style={styles.button}
-            onPress={() => router.push('/auth/unified-auth')}
-          >
-            <Text style={styles.buttonText}>ابدأ رحلتك مع ولكارد</Text>
-            <MaterialIcons name="arrow-forward" size={20} color="#fff" />
-          </TouchableOpacity>
-        </Animated.View>
+          <MaterialIcons 
+            name={currentIndex === welcomeData.length - 1 ? 'arrow-forward' : 'arrow-forward-ios'} 
+            size={20} 
+            color="#fff" 
+          />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
-  logoSection: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#f8f9ff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#007AFF',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  appName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  appTagline: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  welcomeSection: {
-    alignItems: 'center',
-    marginBottom: 40,
-    paddingHorizontal: 30,
-  },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  welcomeSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-    fontWeight: '400',
-  },
-  featuresSection: {
-    marginBottom: 40,
-    paddingHorizontal: 20,
-  },
-  featureRow: {
+  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 10,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+    paddingBottom: 20,
   },
-  featureBubble: {
-    flexDirection: 'column',
+  skipButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  skipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  slide: {
+    width,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    backgroundColor: '#f8f9ff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#e3f2fd',
-    minHeight: 70,
-    maxWidth: (width - 60) / 2,
+    paddingHorizontal: 40,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 40,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  featureText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 4,
-    fontWeight: '500',
-    lineHeight: 16,
-  },
-  buttonContainer: {
-    paddingHorizontal: 30,
-    paddingBottom: 40,
-  },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
     elevation: 8,
   },
-  buttonText: {
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 36,
+  },
+  subtitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  description: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 20,
+  },
+  paginationContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  paginationDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  paginationDot: {
+    height: 8,
+    borderRadius: 4,
+  },
+  bottomContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+  },
+  nextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  nextButtonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
     marginRight: 8,
   },
 }); 

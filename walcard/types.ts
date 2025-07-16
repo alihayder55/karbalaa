@@ -80,7 +80,6 @@ export interface Product {
   price: number;
   discount_price?: number;
   image_url?: string;
-  available_quantity: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;

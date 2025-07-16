@@ -38,6 +38,7 @@ export default function UnifiedLoginScreen() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [userExists, setUserExists] = useState<boolean | null>(null);
   const [userAccountInfo, setUserAccountInfo] = useState<any>(null);
+  const [phoneChecked, setPhoneChecked] = useState(false);
 
   const formatPhoneNumber = (country: string, phone: string) => {
     const cleanPhone = phone.replace(/^\+?964|^0/, '');
@@ -143,16 +144,17 @@ export default function UnifiedLoginScreen() {
       const accountInfo = await checkUserExists(fullPhone);
       
       if (accountInfo && accountInfo.has_account) {
-        // المستخدم موجود
+        // المستخدم موجود - عرض واجهة تسجيل الدخول
         setUserExists(true);
         setUserAccountInfo(accountInfo);
-        
-        // إرسال OTP للمستخدم الموجود (بغض النظر عن حالة الموافقة)
-        await sendOTP(fullPhone, false, accountInfo.full_name);
+        setPhoneChecked(true);
+        // لا نرسل OTP هنا، ننتظر المستخدم للضغط على زر تسجيل الدخول
       } else {
-        // مستخدم جديد
+        // مستخدم جديد - عرض واجهة إنشاء حساب جديد
         setUserExists(false);
         setUserAccountInfo(null);
+        setPhoneChecked(true);
+        // لا نرسل OTP هنا، ننتظر المستخدم لإدخال الاسم والضغط على زر الإرسال
       }
     } catch (error: any) {
       console.error('Error checking user:', error);
@@ -245,7 +247,7 @@ export default function UnifiedLoginScreen() {
     await sendOTP(fullPhone, false, userAccountInfo?.full_name);
   };
 
-  if (userExists === true) {
+  if (phoneChecked && userExists === true) {
     // واجهة تسجيل الدخول للمستخدم الموجود
     return (
       <View style={styles.container}>
@@ -300,6 +302,7 @@ export default function UnifiedLoginScreen() {
                 onPress={() => {
                   setUserExists(null);
                   setPhoneNumber('');
+                  setPhoneChecked(false);
                 }}
               >
                 <MaterialIcons name="arrow-back" size={20} color="#666" />
@@ -312,7 +315,7 @@ export default function UnifiedLoginScreen() {
     );
   }
 
-  if (userExists === false) {
+  if (phoneChecked && userExists === false) {
     // واجهة التسجيل للمستخدم الجديد
     return (
       <View style={styles.container}>
@@ -371,6 +374,7 @@ export default function UnifiedLoginScreen() {
                   setUserExists(null);
                   setPhoneNumber('');
                   setFullName('');
+                  setPhoneChecked(false);
                 }}
               >
                 <MaterialIcons name="arrow-back" size={20} color="#666" />

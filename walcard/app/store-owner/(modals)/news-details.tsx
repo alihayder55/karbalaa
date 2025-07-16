@@ -8,8 +8,8 @@ export default function StoreOwnerNewsDetails() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+        <TouchableOpacity onPress={() => router.push('/store-owner')}>
+          <MaterialIcons name="arrow-back" size={24} color="#40E0D0" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>تفاصيل الخبر</Text>
         <View style={{ width: 24 }} />

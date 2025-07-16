@@ -11,15 +11,17 @@ import {
   RefreshControl,
   ActivityIndicator,
   Dimensions,
-  SafeAreaView,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import FavoriteButton from '../../components/FavoriteButton';
 import { getCurrentUser } from '../../lib/auth-helpers';
 import { cartManager } from '../../lib/cart-manager';
+import { getArabicTextStyles } from '../../lib/rtl-config';
 
 const { width } = Dimensions.get('window');
 
@@ -30,7 +32,7 @@ interface Product {
   price: number;
   discount_price?: number;
   image_url?: string;
-  available_quantity: number;
+  is_active: boolean;
   category_id: string;
   merchant_id: string;
 }
@@ -102,7 +104,7 @@ export default function StoreOwnerHome() {
 
   const loadProducts = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           id,
@@ -111,16 +113,19 @@ export default function StoreOwnerHome() {
           price,
           discount_price,
           image_url,
-          available_quantity,
+          is_active,
           category_id,
           merchant_id
         `)
-        .order('name')
-        .limit(50);
+        .eq('is_active', true);
 
-      if (error) throw error;
-      setProducts(data || []);
-      setAllProducts(data || []); // حفظ نسخة من جميع المنتجات
+      if (productsError) {
+        console.error('Error loading products:', productsError);
+        return;
+      }
+
+      setProducts(productsData || []);
+      setAllProducts(productsData || []); // حفظ نسخة من جميع المنتجات
     } catch (error) {
       console.error('Error loading products:', error);
     }
@@ -143,19 +148,17 @@ export default function StoreOwnerHome() {
   const loadCategories = async () => {
     try {
       console.log('🔍 Loading categories from database...');
-      
       const { data, error } = await supabase
         .from('product_categories')
-        .select('id, name, description')
+        .select('id, name, description, image_URL')
         .order('name');
-
       if (error) {
         console.error('❌ Error loading categories:', error);
         setCategories([]);
-      } else {
-        console.log('✅ Categories loaded:', data?.length || 0);
-        setCategories(data || []);
+        return;
       }
+      console.log('✅ Categories loaded:', data?.length || 0);
+      setCategories(data || []);
     } catch (error) {
       console.error('❌ Exception loading categories:', error);
       setCategories([]);
@@ -234,7 +237,6 @@ export default function StoreOwnerHome() {
           price,
           discount_price,
           image_url,
-          available_quantity,
           category_id,
           merchant_id
         `);
@@ -250,33 +252,32 @@ export default function StoreOwnerHome() {
       const { data, error } = await supabaseQuery.order('name').limit(100);
 
       if (error) {
-        console.error('Error searching products:', error);
-        throw error;
+        console.error('❌ Search error:', error);
+        setProducts([]);
+      } else {
+        console.log('✅ Search results:', data?.length || 0);
+        setProducts(data || []);
+        setShowingResults(true);
       }
-
-      console.log('✅ Search results:', data?.length || 0, 'products');
-      setProducts(data || []);
-      setShowingResults(true);
     } catch (error) {
-      console.error('Error searching products:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء البحث');
+      console.error('❌ Search exception:', error);
+      setProducts([]);
     } finally {
       setSearching(false);
     }
   };
 
-  // فلترة حسب الفئة
   const filterByCategory = async (categoryId: string) => {
-    if (categoryId === 'all') {
-      setProducts(allProducts);
-      setShowingResults(false);
-      return;
-    }
-
     try {
-      setSearching(true);
-      console.log('🏷️ Filtering by category:', categoryId);
+      setSelectedCategory(categoryId);
+      console.log('🔍 Filtering by category:', categoryId);
       
+      if (categoryId === 'all') {
+        setProducts(allProducts);
+        setShowingResults(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -286,26 +287,26 @@ export default function StoreOwnerHome() {
           price,
           discount_price,
           image_url,
-          available_quantity,
+          is_active,
           category_id,
           merchant_id
         `)
         .eq('category_id', categoryId)
-        .order('name');
+        .eq('is_active', true)
+        .order('name')
+        .limit(100);
 
       if (error) {
-        console.error('Error filtering by category:', error);
-        throw error;
+        console.error('❌ Category filter error:', error);
+        setProducts([]);
+      } else {
+        console.log('✅ Category filter results:', data?.length || 0);
+        setProducts(data || []);
+        setShowingResults(true);
       }
-
-      console.log('✅ Category results:', data?.length || 0, 'products');
-      setProducts(data || []);
-      setShowingResults(true);
     } catch (error) {
-      console.error('Error filtering by category:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء تحميل منتجات الفئة');
-    } finally {
-      setSearching(false);
+      console.error('❌ Category filter exception:', error);
+      setProducts([]);
     }
   };
 
@@ -316,15 +317,13 @@ export default function StoreOwnerHome() {
   };
 
   const handleSearch = () => {
-    console.log('🔍 Search button pressed, query:', searchQuery);
-    performSearch(searchQuery.trim());
+    performSearch(searchQuery);
   };
 
   const handleClearSearch = () => {
     setSearchQuery('');
-    setSelectedCategory('all');
-    setProducts(allProducts);
     setShowingResults(false);
+    filterByCategory(selectedCategory);
   };
 
   const handleProductPress = (product: Product) => {
@@ -346,10 +345,14 @@ export default function StoreOwnerHome() {
   };
 
   const handleCategoryPress = (category: Category) => {
-    console.log('🏷️ Category pressed:', category.name);
-    setSelectedCategory(category.id);
-    setSearchQuery(''); // مسح البحث عند اختيار فئة
-    filterByCategory(category.id);
+    router.push({
+      pathname: '/store-owner/search',
+      params: { categoryId: category.id }
+    });
+  };
+
+  const handleViewAllCategories = () => {
+    router.push('/store-owner/search');
   };
 
   const formatPrice = (price: number) => {
@@ -363,8 +366,9 @@ export default function StoreOwnerHome() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6B35" />
+          <ActivityIndicator size="large" color="#40E0D0" />
           <Text style={styles.loadingText}>جاري التحميل...</Text>
         </View>
       </SafeAreaView>
@@ -372,25 +376,34 @@ export default function StoreOwnerHome() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View style={styles.headerLeft}>
-            <MaterialIcons name="store" size={24} color="#FF6B35" />
-            <Text style={styles.welcomeText}>مرحباً بك</Text>
-            {storeOwner && (
-              <Text style={styles.storeNameText}>{storeOwner.store_name}</Text>
-            )}
+          <View style={styles.logoContainer}>
+            <View style={styles.logoIcon}>
+              <MaterialIcons name="store" size={28} color="#fff" />
+            </View>
+            <View style={styles.logoTextContainer}>
+              <Text style={styles.logoText}>ولكارد</Text>
+              <Text style={styles.logoSubtext}>منصة التجارة بالجملة</Text>
+            </View>
           </View>
-          <TouchableOpacity onPress={handleCartPress} style={styles.cartButton}>
-            <MaterialIcons name="shopping-cart" size={24} color="#333" />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.iconButton} onPress={handleCartPress}>
+              <MaterialIcons name="shopping-cart" size={24} color="#40E0D0" />
+              {cartCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton}>
+              <MaterialIcons name="notifications-none" size={24} color="#40E0D0" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -401,10 +414,20 @@ export default function StoreOwnerHome() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Welcome Section - Minimized */}
+        <View style={styles.welcomeSection}>
+          <View style={styles.welcomeContent}>
+            <Text style={styles.welcomeTitle}>مرحباً بك في ولكارد</Text>
+            <Text style={styles.welcomeSubtitle}>
+              {storeOwner ? `مرحباً بك في ${storeOwner.store_name}` : 'اكتشف أفضل المنتجات بالجملة'}
+            </Text>
+          </View>
+        </View>
+
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <MaterialIcons name="search" size={20} color="#666" />
             <TextInput
               style={styles.searchInput}
               placeholder="ابحث عن المنتجات..."
@@ -412,141 +435,98 @@ export default function StoreOwnerHome() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               onSubmitEditing={handleSearch}
+              returnKeyType="search"
             />
-            {(searchQuery.length > 0 || showingResults) && (
-              <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
-                <MaterialIcons name="close" size={20} color="#666" />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={handleClearSearch}>
+                <MaterialIcons name="clear" size={20} color="#666" />
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity 
-            style={styles.searchButton} 
-            onPress={handleSearch}
-            disabled={searching}
-          >
-            {searching ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <MaterialIcons name="search" size={20} color="#fff" />
-            )}
-          </TouchableOpacity>
         </View>
 
         {/* Categories */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>الفئات الرئيسية</Text>
-            {showingResults && (
-              <TouchableOpacity onPress={handleClearSearch}>
-                <Text style={styles.seeAllText}>عرض الكل</Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.sectionTitleContainer}>
+              <MaterialIcons name="category" size={24} color="#40E0D0" />
+              <Text style={styles.sectionTitle}>الفئات ({categories.length})</Text>
+            </View>
+            <TouchableOpacity style={styles.viewAllButton} onPress={handleViewAllCategories}>
+              <Text style={styles.viewAllText}>عرض الكل</Text>
+              <MaterialIcons name="arrow-forward-ios" size={16} color="#40E0D0" />
+            </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
-            {/* زر الكل */}
-            <TouchableOpacity 
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoriesScroll}
+            contentContainerStyle={styles.categoriesContainer}
+          >
+            <TouchableOpacity
               style={[
-                styles.categoryCard,
-                selectedCategory === 'all' && styles.categoryCardActive
+                styles.categoryChip,
+                selectedCategory === 'all' && styles.categoryChipActive
               ]}
-              onPress={() => {
-                setSelectedCategory('all');
-                setSearchQuery('');
-                filterByCategory('all');
-              }}
+              onPress={() => filterByCategory('all')}
             >
-              <MaterialIcons 
-                name="category" 
-                size={32} 
-                color={selectedCategory === 'all' ? '#fff' : '#FF6B35'} 
-              />
               <Text style={[
-                styles.categoryText,
-                selectedCategory === 'all' && styles.categoryTextActive
+                styles.categoryChipText,
+                selectedCategory === 'all' && styles.categoryChipTextActive
               ]}>
                 الكل
               </Text>
             </TouchableOpacity>
-
-            {categories.length > 0 ? (
+            {categories.length === 0 ? (
+              <View style={styles.emptyCategoriesContainer}>
+                <Text style={styles.emptyCategoriesText}>لا توجد فئات متاحة</Text>
+                <Text style={styles.emptyCategoriesSubtext}>عدد الفئات المحملة: {categories.length}</Text>
+              </View>
+            ) : (
               categories.map((category, index) => (
-                <TouchableOpacity 
-                  key={category.id} 
+                <TouchableOpacity
+                  key={category.id}
                   style={[
-                    styles.categoryCard,
-                    selectedCategory === category.id && styles.categoryCardActive
+                    styles.categoryChip,
+                    selectedCategory === category.id && styles.categoryChipActive
                   ]}
-                  onPress={() => handleCategoryPress(category)}
+                  onPress={() => filterByCategory(category.id)}
                 >
-                  <MaterialIcons 
-                    name={getCategoryIcon(index)} 
-                    size={32} 
-                    color={selectedCategory === category.id ? '#fff' : getCategoryColor(index)} 
-                  />
                   <Text style={[
-                    styles.categoryText,
-                    selectedCategory === category.id && styles.categoryTextActive
+                    styles.categoryChipText,
+                    selectedCategory === category.id && styles.categoryChipTextActive
                   ]}>
                     {category.name}
                   </Text>
                 </TouchableOpacity>
               ))
-            ) : (
-              // رسالة تحميل أو عدم وجود فئات
-              <View style={styles.noCategoriesContainer}>
-                <MaterialIcons name="category" size={40} color="#ccc" />
-                <Text style={styles.noCategoriesText}>
-                  {loading ? 'جاري تحميل الفئات...' : 'لا توجد فئات متاحة'}
-                </Text>
-              </View>
             )}
           </ScrollView>
         </View>
 
-        {/* Results Header */}
-        {showingResults && (
-          <View style={styles.resultsHeader}>
-            <Text style={styles.resultsCount}>
-              {searchQuery.trim() 
-                ? `نتائج البحث عن "${searchQuery}": ${products.length} منتج`
-                : selectedCategory !== 'all'
-                  ? `منتجات الفئة: ${products.length} منتج`
-                  : `عرض ${products.length} منتج`
-              }
-            </Text>
-          </View>
-        )}
-
-        {/* Products Grid */}
+        {/* Products */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {showingResults 
-                ? 'النتائج' 
-                : 'المنتجات المتوفرة'
-              }
-            </Text>
-            {!showingResults && (
-              <TouchableOpacity onPress={() => router.push('/store-owner/search')}>
-                <Text style={styles.seeAllText}>عرض المزيد</Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.sectionTitleContainer}>
+              <MaterialIcons name="inventory" size={24} color="#40E0D0" />
+              <Text style={styles.sectionTitle}>
+                {showingResults ? 'نتائج البحث' : 'المنتجات'}
+              </Text>
+            </View>
+            <Text style={styles.productsCount}>{products.length} منتج</Text>
           </View>
-
+          
           {searching ? (
             <View style={styles.searchingContainer}>
-              <ActivityIndicator size="large" color="#FF6B35" />
+              <ActivityIndicator size="large" color="#40E0D0" />
               <Text style={styles.searchingText}>جاري البحث...</Text>
             </View>
-          ) : products.length === 0 && showingResults ? (
-            <View style={styles.noResultsContainer}>
-              <MaterialIcons name="search-off" size={60} color="#ccc" />
-              <Text style={styles.noResultsTitle}>لا توجد نتائج</Text>
-              <Text style={styles.noResultsText}>
-                {searchQuery.trim() 
-                  ? `لم يتم العثور على منتجات تطابق "${searchQuery}"`
-                  : 'لا توجد منتجات في هذه الفئة'
-                }
+          ) : products.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="inventory" size={80} color="#ccc" />
+              <Text style={styles.emptyTitle}>لا توجد منتجات</Text>
+              <Text style={styles.emptyText}>
+                {showingResults ? 'لم يتم العثور على منتجات تطابق البحث' : 'لم يتم العثور على منتجات بعد'}
               </Text>
             </View>
           ) : (
@@ -566,34 +546,33 @@ export default function StoreOwnerHome() {
                       />
                     ) : (
                       <View style={styles.productImagePlaceholder}>
-                        <MaterialIcons name="inventory" size={40} color="#ccc" />
+                        <MaterialIcons name="inventory" size={32} color="#666" />
                       </View>
                     )}
-                    {product.discount_price && (
-                      <View style={styles.discountBadge}>
-                        <Text style={styles.discountText}>
-                          {getDiscountPercentage(product.price, product.discount_price)}%
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.favoriteButtonContainer}>
+                    <View style={styles.productActions}>
                       <FavoriteButton 
-                        productId={product.id} 
+                        productId={product.id}
                         size={18}
-                        showToast={false}
-                        style={styles.favoriteButtonStyle}
+                        showToast={true}
+                        key={`favorite-${product.id}`}
+                        onToggle={(isFavorite) => {
+                          console.log(`Favorite toggled for product ${product.id}: ${isFavorite}`);
+                        }}
                       />
+                      {product.discount_price && (
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>
+                            {getDiscountPercentage(product.price, product.discount_price)}%
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
+                  
                   <View style={styles.productContent}>
                     <Text style={styles.productName} numberOfLines={2}>
                       {product.name}
                     </Text>
-                    {product.description && (
-                      <Text style={styles.productDescription} numberOfLines={1}>
-                        {product.description}
-                      </Text>
-                    )}
                     <View style={styles.productPriceContainer}>
                       {product.discount_price ? (
                         <>
@@ -610,9 +589,19 @@ export default function StoreOwnerHome() {
                         </Text>
                       )}
                     </View>
-                    <Text style={styles.productQuantity}>
-                      المتوفر: {product.available_quantity} قطعة
-                    </Text>
+                    <View style={styles.availabilityContainer}>
+                      <MaterialIcons 
+                        name={product.is_active ? "check-circle" : "cancel"} 
+                        size={14} 
+                        color={product.is_active ? "#28A745" : "#DC3545"} 
+                      />
+                      <Text style={[
+                        styles.availabilityText,
+                        { color: product.is_active ? "#28A745" : "#DC3545" }
+                      ]}>
+                        {product.is_active ? 'متوفر' : 'غير متوفر'}
+                      </Text>
+                    </View>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -620,35 +609,46 @@ export default function StoreOwnerHome() {
           )}
         </View>
 
-        {/* Latest News - إخفاء الأخبار عند عرض النتائج */}
-        {!showingResults && news.length > 0 && (
+        {/* News Section */}
+        {news.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>أحدث الأخبار</Text>
-              <TouchableOpacity>
-                <Text style={styles.seeAllText}>عرض الكل</Text>
-              </TouchableOpacity>
+              <View style={styles.sectionTitleContainer}>
+                <MaterialIcons name="article" size={24} color="#40E0D0" />
+                <Text style={styles.sectionTitle}>الأخبار والعروض</Text>
+              </View>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.newsScroll}
+              contentContainerStyle={styles.newsContainer}
+            >
               {news.map((newsItem) => (
                 <TouchableOpacity
                   key={newsItem.id}
                   style={styles.newsCard}
                   onPress={() => handleNewsPress(newsItem)}
                 >
-                  {newsItem.image_url && (
-                    <Image
-                      source={{ uri: newsItem.image_url }}
-                      style={styles.newsImage}
-                      resizeMode="cover"
-                    />
-                  )}
+                  <View style={styles.newsImageContainer}>
+                    {newsItem.image_url ? (
+                      <Image
+                        source={{ uri: newsItem.image_url }}
+                        style={styles.newsImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.newsImagePlaceholder}>
+                        <MaterialIcons name="article" size={32} color="#666" />
+                      </View>
+                    )}
+                  </View>
                   <View style={styles.newsContent}>
                     <Text style={styles.newsTitle} numberOfLines={2}>
                       {newsItem.title}
                     </Text>
-                    <Text style={styles.newsDate}>
-                      {new Date(newsItem.created_at).toLocaleDateString('ar-IQ')}
+                    <Text style={styles.newsExcerpt} numberOfLines={3}>
+                      {newsItem.content}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -656,29 +656,18 @@ export default function StoreOwnerHome() {
             </ScrollView>
           </View>
         )}
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// Helper functions for category icons and colors
-const getCategoryIcon = (index: number) => {
-  const icons = ['restaurant', 'local-grocery-store', 'checkroom', 'phone-android', 'home', 'sports-soccer'];
-  return icons[index % icons.length];
-};
-
-const getCategoryColor = (index: number) => {
-  const colors = ['#FF6B35', '#28A745', '#6F42C1', '#17A2B8', '#FFC107', '#DC3545'];
-  return colors[index % colors.length];
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollView: {
-    flex: 1,
+    backgroundColor: '#fff',
   },
   loadingContainer: {
     flex: 1,
@@ -686,53 +675,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
     color: '#666',
+    marginTop: 6,
   },
   header: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 20,
+    paddingVertical: 4, // was 12, further reduced
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomColor: '#f0f0f0',
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerLeft: {
+  logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
-  welcomeText: {
-    fontSize: 16,
+  logoIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#40E0D0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoTextContainer: {
+    flexDirection: 'column',
+  },
+  logoText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  logoSubtext: {
+    fontSize: 12,
     color: '#666',
-    marginLeft: 8,
   },
-  storeNameText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  cartButton: {
-    position: 'relative',
+  iconButton: {
     padding: 8,
+    borderRadius: 20,
     backgroundColor: '#f8f9fa',
-    borderRadius: 8,
+    position: 'relative',
   },
   cartBadge: {
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#ff4757',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -740,197 +738,282 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cartBadgeText: {
-    color: '#fff',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
+    color: '#fff',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  welcomeSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 2, // was 4, minimized
+    backgroundColor: 'linear-gradient(135deg, #40E0D0 0%, #1ABC9C 100%)',
+  },
+  welcomeContent: {
+    alignItems: 'center',
+  },
+  welcomeTitle: {
+    fontSize: 18, // was 28, reduced
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 2, // was 8, reduced
+  },
+  welcomeSubtitle: {
+    fontSize: 12, // was 16, reduced
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    marginBottom: 0, // was 24, removed
+  },
+  welcomeStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
+    padding: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  searchSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 2, // was 4, further reduced
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
     paddingHorizontal: 16,
-    height: 48,
-    marginHorizontal: 20,
-    marginBottom: 20,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  searchIcon: {
-    marginRight: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
     fontSize: 16,
     color: '#333',
-    textAlign: 'right',
-  },
-  searchButton: {
-    padding: 8,
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearButton: {
-    padding: 8,
-  },
-  categoryCardActive: {
-    backgroundColor: '#FF6B35',
-  },
-  categoryTextActive: {
-    color: '#fff',
-  },
-  resultsHeader: {
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  resultsCount: {
-    fontSize: 16,
-    color: '#666',
-  },
-  searchingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  searchingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666',
-  },
-  noResultsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  noResultsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 10,
-  },
-  noResultsText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 5,
-    paddingHorizontal: 20,
-  },
-  noCategoriesContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  noCategoriesText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statCard: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  categoriesContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  categoryCard: {
-    width: 120,
-    height: 120,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginRight: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  categoryText: {
-    fontSize: 12,
-    color: '#333',
-    marginTop: 8,
-    textAlign: 'center',
+    marginLeft: 12,
   },
   section: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
   },
-  seeAllText: {
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewAllText: {
     fontSize: 14,
-    color: '#FF6B35',
+    color: '#40E0D0',
     fontWeight: '600',
   },
-  newsCard: {
-    width: 280,
+  productsCount: {
+    fontSize: 14,
+    color: '#666',
+  },
+  categoriesScroll: {
+    marginHorizontal: -20,
+  },
+  categoriesContainer: {
+    paddingHorizontal: 20,
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 12,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  categoryChipActive: {
+    backgroundColor: '#40E0D0',
+    borderColor: '#40E0D0',
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  categoryChipTextActive: {
+    color: '#fff',
+  },
+  searchingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  searchingText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 12,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  productsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  productCard: {
+    width: (width - 60) / 2,
     backgroundColor: '#fff',
     borderRadius: 16,
-    marginRight: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
     overflow: 'hidden',
-    marginBottom: 16, // Added margin for spacing between news cards
+  },
+  productImageContainer: {
+    position: 'relative',
+    height: 120,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  productActions: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  discountBadge: {
+    backgroundColor: '#ff4757',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  discountText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  productContent: {
+    padding: 12,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  productPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#40E0D0',
+  },
+  discountPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#40E0D0',
+  },
+  originalPrice: {
+    fontSize: 12,
+    color: '#999',
+    textDecorationLine: 'line-through',
+  },
+  productQuantity: {
+    fontSize: 12,
+    color: '#666',
+  },
+  newsScroll: {
+    marginHorizontal: -20,
+  },
+  newsContainer: {
+    paddingHorizontal: 20,
+  },
+  newsCard: {
+    width: 280,
+    marginRight: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  newsImageContainer: {
+    height: 120,
   },
   newsImage: {
     width: '100%',
-    height: 140,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    height: '100%',
+  },
+  newsImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   newsContent: {
     padding: 16,
@@ -941,165 +1024,36 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
   },
-  newsDate: {
+  newsExcerpt: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  bottomSpacing: {
+    height: 120,
+  },
+  emptyCategoriesContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptyCategoriesText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  emptyCategoriesSubtext: {
     fontSize: 12,
     color: '#999',
+    marginTop: 4,
   },
-  productsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  productCard: {
-    width: (width - 60) / 2,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    overflow: 'hidden',
-    flexDirection: 'column', // Added for layout
-    justifyContent: 'space-between', // Added for layout
-  },
-  productImageContainer: {
-    height: 140,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  productImage: {
-    width: '100%',
-    height: '100%',
-  },
-  productImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  discountBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  discountText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  productContent: {
-    padding: 12,
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  productDescription: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  productPriceContainer: {
+  availabilityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginTop: 8,
+    gap: 4,
   },
-  productPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FF6B35',
-  },
-  discountPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FF6B35',
-    marginRight: 8,
-  },
-  originalPrice: {
-    fontSize: 14,
-    color: '#999',
-    textDecorationLine: 'line-through',
-  },
-  productQuantity: {
+  availabilityText: {
     fontSize: 12,
-    color: '#666',
-  },
-  favoriteButtonContainer: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  favoriteButtonStyle: {
-    // This style is for the button itself, not the container
-  },
-  storeInfoSection: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  storeInfoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  storeInfoTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 8,
-  },
-  storeInfoContent: {
-    gap: 12,
-  },
-  storeName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  storeType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  storeAddress: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  storeHours: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  workDays: {
-    fontSize: 14,
-    color: '#666',
+    fontWeight: '600',
   },
 }); 

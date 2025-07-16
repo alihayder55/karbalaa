@@ -14,7 +14,7 @@ export interface CartItem {
     price: number;
     discount_price?: number;
     image_url?: string;
-    available_quantity: number;
+    is_active: boolean;
     merchant_id: string;
   };
 }
@@ -157,7 +157,7 @@ class CartManager {
           price,
           discount_price,
           image_url,
-          available_quantity,
+          is_active,
           merchant_id
         `)
         .in('id', productIds);
@@ -177,7 +177,7 @@ class CartManager {
             price: product.price,
             discount_price: product.discount_price,
             image_url: product.image_url,
-            available_quantity: product.available_quantity,
+            is_active: product.is_active,
             merchant_id: product.merchant_id
           } : undefined
         };
@@ -261,7 +261,7 @@ class CartManager {
         };
       }
 
-      // التحقق من توفر الكميات قبل إنشاء الطلب
+      // التحقق من توفر المنتجات قبل إنشاء الطلب
       console.log('🔍 Checking product availability before creating order...');
       for (const item of cartWithDetails) {
         if (!item.product) {
@@ -271,10 +271,10 @@ class CartManager {
           };
         }
 
-        if (item.quantity > item.product.available_quantity) {
+        if (!item.product.is_active) {
           return {
             success: false,
-            message: `الكمية المطلوبة من ${item.product.name} غير متوفرة. المتوفر: ${item.product.available_quantity}`
+            message: `المنتج ${item.product.name} غير متوفر حالياً`
           };
         }
       }
@@ -289,8 +289,7 @@ class CartManager {
           store_owner_id: currentUser.user_id,
           status: 'pending',
           total_price: totalPrice,
-          order_notes: orderNotes,
-          created_at: new Date().toISOString()
+          ...(orderNotes && { order_notes: orderNotes }) // Only include if orderNotes exists
         })
         .select()
         .single();
@@ -366,14 +365,14 @@ class CartManager {
       for (const item of cartItems) {
         if (!item.product) continue;
 
-        const newQuantity = item.product.available_quantity - item.quantity;
+        const newQuantity = item.product.is_active ? item.product.is_active : 0; // Assuming is_active is boolean
         
-        console.log(`📦 Updating ${item.product.name}: ${item.product.available_quantity} - ${item.quantity} = ${newQuantity}`);
+        console.log(`📦 Updating ${item.product.name}: ${item.product.is_active} - ${item.quantity} = ${newQuantity}`);
 
         const { error } = await supabase
           .from('products')
           .update({ 
-            available_quantity: Math.max(0, newQuantity) // تأكد من عدم النزول تحت الصفر
+            is_active: newQuantity // Assuming is_active is boolean
           })
           .eq('id', item.product_id);
 
@@ -417,7 +416,7 @@ class CartManager {
           quantity,
           products (
             name,
-            available_quantity
+            is_active
           )
         `)
         .eq('order_id', orderId);
@@ -440,7 +439,7 @@ class CartManager {
       // إعادة الكميات إلى المخزون
       for (const item of orderItems) {
         const product = Array.isArray(item.products) ? item.products[0] : item.products;
-        const currentQuantity = product?.available_quantity || 0;
+        const currentQuantity = product?.is_active || 0; // Assuming is_active is boolean
         const newQuantity = currentQuantity + item.quantity;
         
         console.log(`📦 Restoring ${product?.name}: ${currentQuantity} + ${item.quantity} = ${newQuantity}`);
@@ -448,7 +447,7 @@ class CartManager {
         const { error } = await supabase
           .from('products')
           .update({ 
-            available_quantity: newQuantity
+            is_active: newQuantity // Assuming is_active is boolean
           })
           .eq('id', item.product_id);
 

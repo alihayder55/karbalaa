@@ -43,6 +43,7 @@ export default function UnifiedAuthScreen() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [userExists, setUserExists] = useState<boolean | null>(null);
   const [userAccountInfo, setUserAccountInfo] = useState<any>(null);
+  const [phoneChecked, setPhoneChecked] = useState(false);
 
   // Animation values
   const fadeAnim = useState(new Animated.Value(0))[0];
@@ -158,19 +159,19 @@ export default function UnifiedAuthScreen() {
       console.log('📊 Account info result:', accountInfo);
       
       if (accountInfo && accountInfo.has_account) {
-        // المستخدم موجود
+        // المستخدم موجود - عرض واجهة تسجيل الدخول
         console.log('✅ User exists - setting userExists to true');
         setUserExists(true);
         setUserAccountInfo(accountInfo);
-        
-        // إرسال OTP للمستخدم الموجود (بغض النظر عن حالة الموافقة)
-        await sendOTP(fullPhone, false, accountInfo.full_name);
+        setPhoneChecked(true);
+        // لا نرسل OTP هنا، ننتظر المستخدم للضغط على زر تسجيل الدخول
       } else {
-        // مستخدم جديد - لا نرسل OTP هنا، ننتظر إدخال الاسم
+        // مستخدم جديد - عرض واجهة إنشاء حساب جديد
         console.log('🆕 New user - setting userExists to false');
         setUserExists(false);
         setUserAccountInfo(null);
-        // لا نرسل OTP هنا، سنرسله بعد إدخال الاسم
+        setPhoneChecked(true);
+        // لا نرسل OTP هنا، ننتظر المستخدم لإدخال الاسم والضغط على زر الإرسال
       }
     } catch (error: any) {
       console.error('Error checking user:', error);
@@ -292,7 +293,7 @@ export default function UnifiedAuthScreen() {
     await sendOTP(fullPhone, false, userAccountInfo?.full_name);
   };
 
-  if (userExists === true) {
+  if (phoneChecked && userExists === true) {
     // واجهة تسجيل الدخول للمستخدم الموجود
     return (
       <View style={styles.container}>
@@ -386,6 +387,7 @@ export default function UnifiedAuthScreen() {
                   onPress={() => {
                     setUserExists(null);
                     setPhoneNumber('');
+                    setPhoneChecked(false);
                   }}
                 >
                   <MaterialIcons name="arrow-back" size={20} color="#666" />
@@ -399,7 +401,7 @@ export default function UnifiedAuthScreen() {
     );
   }
 
-  if (userExists === false) {
+  if (phoneChecked && userExists === false) {
     // واجهة إنشاء حساب جديد
     return (
       <View style={styles.container}>
@@ -500,6 +502,7 @@ export default function UnifiedAuthScreen() {
                     setUserExists(null);
                     setPhoneNumber('');
                     setFullName('');
+                    setPhoneChecked(false);
                   }}
                 >
                   <MaterialIcons name="arrow-back" size={20} color="#666" />
@@ -541,7 +544,7 @@ export default function UnifiedAuthScreen() {
               <View style={styles.header}>
                 <View style={styles.logoContainer}>
                   <View style={styles.logoCircle}>
-                    <MaterialIcons name="store" size={48} color="#007AFF" />
+                    <MaterialIcons name="store" size={48} color="#40E0D0" />
                   </View>
                   <Text style={styles.welcomeTitle}>مرحباً بك في ولكارد</Text>
                   <Text style={styles.welcomeSubtitle}>
@@ -555,7 +558,7 @@ export default function UnifiedAuthScreen() {
 
               <View style={styles.formContainer}>
                 <View style={styles.sectionTitle}>
-                  <MaterialIcons name="phone" size={24} color="#007AFF" />
+                  <MaterialIcons name="phone" size={24} color="#40E0D0" />
                   <Text style={styles.sectionTitleText}>معلومات الاتصال</Text>
                 </View>
 
@@ -714,7 +717,7 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#40E0D0',
     marginTop: 16,
   },
   userName: {
@@ -848,10 +851,10 @@ const styles = StyleSheet.create({
   phoneValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#007AFF',
+    color: '#40E0D0',
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#40E0D0',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -901,7 +904,7 @@ const styles = StyleSheet.create({
   welcomeSubtitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#40E0D0',
     marginTop: 8,
   },
   welcomeDescription: {
@@ -922,7 +925,7 @@ const styles = StyleSheet.create({
   sectionTitleText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#40E0D0',
   },
   inputHint: {
     fontSize: 14,
@@ -964,7 +967,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     padding: 4,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#40E0D0',
     borderRadius: 12,
   },
   phoneValueContainer: {

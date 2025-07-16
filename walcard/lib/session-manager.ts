@@ -27,9 +27,9 @@ class SessionManager {
     is_approved: boolean;
   }): Promise<UserSession> {
     try {
-      // Create auth log entry in database (expires in 30 days)
+      // Create auth log entry in database (expires in 365 days - almost permanent)
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1 year from now
 
       const { data: authLog, error } = await supabase
         .from('user_auth_logs')
@@ -157,9 +157,9 @@ class SessionManager {
       const authLogId = await AsyncStorage.getItem(AUTH_LOG_KEY);
       if (!authLogId) return false;
 
-      // Extend expiry by 30 days
+      // Extend expiry by 1 year (365 days)
       const newExpiresAt = new Date();
-      newExpiresAt.setDate(newExpiresAt.getDate() + 30);
+      newExpiresAt.setFullYear(newExpiresAt.getFullYear() + 1);
 
       const { error } = await supabase
         .from('user_auth_logs')

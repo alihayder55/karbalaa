@@ -8,9 +8,10 @@ import {
   Image,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
@@ -75,8 +76,6 @@ export default function StoreOwnerProfile() {
         phone_number: currentUser.phone_number,
         user_type: currentUser.user_type,
         is_approved: currentUser.is_approved,
-        created_at: new Date().toISOString(), // We don't have this in session
-        updated_at: new Date().toISOString(), // We don't have this in session
       });
 
       // Load store owner data
@@ -144,13 +143,11 @@ export default function StoreOwnerProfile() {
   };
 
   const handleEditProfile = () => {
-    // يمكن إضافة صفحة تعديل الملف الشخصي هنا
-    Alert.alert('قريباً', 'سيتم إضافة هذه الميزة قريباً');
+    router.push('/store-owner/(modals)/edit-profile');
   };
 
-  const handleSettings = () => {
-    // يمكن إضافة صفحة الإعدادات هنا
-    Alert.alert('قريباً', 'سيتم إضافة هذه الميزة قريباً');
+  const handleHelp = () => {
+    router.push('/store-owner/(modals)/help');
   };
 
   const formatDate = (dateString: string) => {
@@ -164,9 +161,10 @@ export default function StoreOwnerProfile() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6B35" />
+          <ActivityIndicator size="large" color="#40E0D0" />
           <Text style={styles.loadingText}>جاري التحميل...</Text>
         </View>
       </SafeAreaView>
@@ -174,13 +172,20 @@ export default function StoreOwnerProfile() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>الملف الشخصي</Text>
         </View>
+      </View>
 
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileImageContainer}>
@@ -192,20 +197,20 @@ export default function StoreOwnerProfile() {
               />
             ) : (
               <View style={styles.profileImagePlaceholder}>
-                <MaterialIcons name="store" size={60} color="#ccc" />
+                <MaterialIcons name="store" size={60} color="#40E0D0" />
               </View>
             )}
             <View style={styles.approvalBadge}>
               <MaterialIcons
-                name={storeOwner?.is_approved ? "check-circle" : "pending"}
+                name={user?.is_approved ? "check-circle" : "pending"}
                 size={20}
-                color={storeOwner?.is_approved ? "#28A745" : "#FFA500"}
+                color={user?.is_approved ? "#28A745" : "#FFA500"}
               />
               <Text style={[
                 styles.approvalText,
-                { color: storeOwner?.is_approved ? "#28A745" : "#FFA500" }
+                { color: user?.is_approved ? "#28A745" : "#FFA500" }
               ]}>
-                {storeOwner?.is_approved ? "موافق عليه" : "قيد المراجعة"}
+                {user?.is_approved ? "موافق عليه" : "قيد المراجعة"}
               </Text>
             </View>
           </View>
@@ -217,10 +222,28 @@ export default function StoreOwnerProfile() {
           </View>
         </View>
 
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="flash-on" size={24} color="#40E0D0" />
+            <Text style={styles.sectionTitle}>إجراءات سريعة</Text>
+          </View>
+          <View style={styles.quickActions}>
+            <TouchableOpacity style={styles.actionCard} onPress={handleEditProfile}>
+              <MaterialIcons name="edit" size={32} color="#40E0D0" />
+              <Text style={styles.actionText}>تعديل الملف</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionCard} onPress={handleHelp}>
+              <MaterialIcons name="help" size={32} color="#40E0D0" />
+              <Text style={styles.actionText}>المساعدة</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Store Information */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="store" size={24} color="#FF6B35" />
+            <MaterialIcons name="store" size={24} color="#40E0D0" />
             <Text style={styles.sectionTitle}>معلومات المتجر</Text>
           </View>
 
@@ -266,31 +289,29 @@ export default function StoreOwnerProfile() {
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>أيام العمل</Text>
                 <Text style={styles.infoValue}>
-                  {storeOwner?.working_days ? storeOwner.working_days.join('، ') : 'غير محدد'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <MaterialIcons name="calendar-today" size={20} color="#666" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>تاريخ التسجيل</Text>
-                <Text style={styles.infoValue}>
-                  تم التسجيل حديثاً
+                  {storeOwner?.working_days?.join(', ')}
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Contact Information */}
+        {/* User Information */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="contact-phone" size={24} color="#FF6B35" />
-            <Text style={styles.sectionTitle}>معلومات الاتصال</Text>
+            <MaterialIcons name="person" size={24} color="#40E0D0" />
+            <Text style={styles.sectionTitle}>معلومات المستخدم</Text>
           </View>
 
           <View style={styles.infoContainer}>
+            <View style={styles.infoRow}>
+              <MaterialIcons name="person" size={20} color="#666" />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>الاسم الكامل</Text>
+                <Text style={styles.infoValue}>{user?.full_name}</Text>
+              </View>
+            </View>
+
             <View style={styles.infoRow}>
               <MaterialIcons name="phone" size={20} color="#666" />
               <View style={styles.infoContent}>
@@ -300,74 +321,27 @@ export default function StoreOwnerProfile() {
             </View>
 
             <View style={styles.infoRow}>
-              <MaterialIcons name="chat" size={20} color="#666" />
+              <MaterialIcons name="account-circle" size={20} color="#666" />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>رقم الواتساب</Text>
+                <Text style={styles.infoLabel}>نوع الحساب</Text>
                 <Text style={styles.infoValue}>
-                  غير محدد
+                  {user?.user_type === 'store_owner' ? 'صاحب محل' : 'تاجر'}
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Preferences */}
+        {/* Logout Button */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialIcons name="settings" size={24} color="#FF6B35" />
-            <Text style={styles.sectionTitle}>التفضيلات</Text>
-          </View>
-
-          <View style={styles.infoContainer}>
-            <View style={styles.infoRow}>
-              <MaterialIcons name="campaign" size={20} color="#666" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>الإعلانات</Text>
-                <Text style={styles.infoValue}>
-                  {storeOwner?.wants_ads ? 'مفعلة' : 'معطلة'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRow}>
-              <MaterialIcons name="local-offer" size={20} color="#666" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>العروض اليومية</Text>
-                <Text style={styles.infoValue}>
-                  {storeOwner?.offers_daily_deals ? 'متوفرة' : 'غير متوفرة'}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <MaterialIcons name="logout" size={24} color="#fff" />
+            <Text style={styles.logoutText}>تسجيل الخروج</Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Actions */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialIcons name="build" size={24} color="#FF6B35" />
-            <Text style={styles.sectionTitle}>الإعدادات</Text>
-          </View>
-
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity style={styles.actionButton} onPress={handleEditProfile}>
-              <MaterialIcons name="edit" size={20} color="#FF6B35" />
-              <Text style={styles.actionText}>تعديل الملف الشخصي</Text>
-              <MaterialIcons name="arrow-forward-ios" size={16} color="#666" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleSettings}>
-              <MaterialIcons name="settings" size={20} color="#FF6B35" />
-              <Text style={styles.actionText}>الإعدادات</Text>
-              <MaterialIcons name="arrow-forward-ios" size={16} color="#666" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleLogout}>
-              <MaterialIcons name="logout" size={20} color="#DC3545" />
-              <Text style={[styles.actionText, { color: '#DC3545' }]}>تسجيل الخروج</Text>
-              <MaterialIcons name="arrow-forward-ios" size={16} color="#666" />
-            </TouchableOpacity>
-          </View>
-        </View>
+        
+        {/* Bottom Spacing for Tab Bar */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -376,7 +350,27 @@ export default function StoreOwnerProfile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
+  },
+  header: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  settingsButton: {
+    padding: 8,
   },
   scrollView: {
     flex: 1,
@@ -387,44 +381,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
     color: '#666',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
+    marginTop: 12,
   },
   profileCard: {
-    backgroundColor: '#fff',
     margin: 20,
-    borderRadius: 12,
     padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   profileImageContainer: {
     alignItems: 'center',
     marginBottom: 16,
-    position: 'relative',
   },
   profileImage: {
     width: 120,
@@ -435,27 +409,19 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
   },
   approvalBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
+    gap: 4,
+    marginTop: 8,
   },
   approvalText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
+    fontSize: 14,
+    fontWeight: '600',
   },
   profileInfo: {
     alignItems: 'center',
@@ -468,43 +434,69 @@ const styles = StyleSheet.create({
   },
   storeType: {
     fontSize: 16,
-    color: '#666',
+    color: '#40E0D0',
+    fontWeight: '600',
     marginBottom: 8,
   },
   ownerName: {
     fontSize: 18,
-    color: '#FF6B35',
-    fontWeight: '600',
+    color: '#666',
   },
   section: {
-    marginHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-    marginLeft: 8,
   },
-  infoContainer: {
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 20,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  infoContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   infoContent: {
     flex: 1,
@@ -517,29 +509,24 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 16,
-    color: '#333',
     fontWeight: '600',
+    color: '#333',
   },
-  actionsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  actionButton: {
+  logoutButton: {
+    backgroundColor: '#ff4757',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderRadius: 12,
+    gap: 8,
   },
-  actionText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 12,
+  logoutText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  bottomSpacing: {
+    height: 120,
   },
 }); 

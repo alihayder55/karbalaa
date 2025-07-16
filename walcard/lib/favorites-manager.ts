@@ -2,283 +2,209 @@ import { supabase } from './supabase';
 import { getCurrentUser } from './auth-helpers';
 
 export interface FavoriteProduct {
-  favorite_id: string;
-  product_id: string;
-  product_name: string;
-  product_name_ar?: string;
-  product_description?: string;
+  id: string;
+  name: string;
+  description?: string;
   price: number;
   discount_price?: number;
   image_url?: string;
-  available_quantity: number;
-  category_name?: string;
-  category_name_ar?: string;
-  merchant_id: string;
-  added_at: string;
-}
-
-export interface FavoriteResult {
-  success: boolean;
-  message: string;
-  already_favorite?: boolean;
-  was_favorite?: boolean;
-  error?: string;
+  is_active: boolean;
+  category_id?: string;
+  merchant_id?: string;
 }
 
 class FavoritesManager {
+  private static instance: FavoritesManager;
+  private listeners: Map<string, Set<(isFavorite: boolean) => void>> = new Map();
+
+  static getInstance(): FavoritesManager {
+    if (!FavoritesManager.instance) {
+      FavoritesManager.instance = new FavoritesManager();
+    }
+    return FavoritesManager.instance;
+  }
+
   /**
-   * Add product to favorites
+   * Subscribe to favorite status changes for a product
    */
-  async addToFavorites(productId: string): Promise<FavoriteResult> {
-    try {
-      const currentUser = getCurrentUser();
-      if (!currentUser) {
-        return {
-          success: false,
-          message: 'يجب تسجيل الدخول أولاً'
-        };
+  subscribe(productId: string, callback: (isFavorite: boolean) => void): () => void {
+    if (!this.listeners.has(productId)) {
+      this.listeners.set(productId, new Set());
+    }
+    
+    this.listeners.get(productId)!.add(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      const callbacks = this.listeners.get(productId);
+      if (callbacks) {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) {
+          this.listeners.delete(productId);
+        }
       }
+    };
+  }
 
-      console.log('❤️ Adding product to favorites:', productId);
-
-      const { data, error } = await supabase.rpc('add_to_favorites', {
-        p_user_id: currentUser.user_id,
-        p_product_id: productId
-      });
-
-      if (error) {
-        console.error('Error adding to favorites:', error);
-        return {
-          success: false,
-          message: 'حدث خطأ أثناء إضافة المنتج للمفضلة'
-        };
-      }
-
-      console.log('✅ Add to favorites result:', data);
-      return data as FavoriteResult;
-    } catch (error) {
-      console.error('Error in addToFavorites:', error);
-      return {
-        success: false,
-        message: 'حدث خطأ غير متوقع'
-      };
+  /**
+   * Notify all listeners about a favorite status change
+   */
+  notify(productId: string, isFavorite: boolean) {
+    const callbacks = this.listeners.get(productId);
+    if (callbacks) {
+      callbacks.forEach(callback => callback(isFavorite));
     }
   }
 
   /**
-   * Remove product from favorites
-   */
-  async removeFromFavorites(productId: string): Promise<FavoriteResult> {
-    try {
-      const currentUser = getCurrentUser();
-      if (!currentUser) {
-        return {
-          success: false,
-          message: 'يجب تسجيل الدخول أولاً'
-        };
-      }
-
-      console.log('💔 Removing product from favorites:', productId);
-
-      const { data, error } = await supabase.rpc('remove_from_favorites', {
-        p_user_id: currentUser.user_id,
-        p_product_id: productId
-      });
-
-      if (error) {
-        console.error('Error removing from favorites:', error);
-        return {
-          success: false,
-          message: 'حدث خطأ أثناء إزالة المنتج من المفضلة'
-        };
-      }
-
-      console.log('✅ Remove from favorites result:', data);
-      return data as FavoriteResult;
-    } catch (error) {
-      console.error('Error in removeFromFavorites:', error);
-      return {
-        success: false,
-        message: 'حدث خطأ غير متوقع'
-      };
-    }
-  }
-
-  /**
-   * Toggle favorite status (add if not favorite, remove if favorite)
-   */
-  async toggleFavorite(productId: string): Promise<FavoriteResult> {
-    try {
-      const currentUser = getCurrentUser();
-      if (!currentUser) {
-        return {
-          success: false,
-          message: 'يجب تسجيل الدخول أولاً'
-        };
-      }
-
-      console.log('🔄 Toggling favorite status for product:', productId);
-
-      const { data, error } = await supabase.rpc('toggle_favorite', {
-        p_user_id: currentUser.user_id,
-        p_product_id: productId
-      });
-
-      if (error) {
-        console.error('Error toggling favorite:', error);
-        return {
-          success: false,
-          message: 'حدث خطأ أثناء تحديث المفضلة'
-        };
-      }
-
-      console.log('✅ Toggle favorite result:', data);
-      return data as FavoriteResult;
-    } catch (error) {
-      console.error('Error in toggleFavorite:', error);
-      return {
-        success: false,
-        message: 'حدث خطأ غير متوقع'
-      };
-    }
-  }
-
-  /**
-   * Check if product is in user's favorites
+   * Check if a product is in favorites
    */
   async isFavorite(productId: string): Promise<boolean> {
     try {
       const currentUser = getCurrentUser();
-      if (!currentUser) {
-        return false;
-      }
+      if (!currentUser) return false;
 
-      const { data, error } = await supabase.rpc('is_product_favorite', {
-        p_user_id: currentUser.user_id,
-        p_product_id: productId
-      });
+      const { data, error } = await supabase
+        .from('user_favorites')
+        .select('id')
+        .eq('user_id', currentUser.user_id)
+        .eq('product_id', productId)
+        .single();
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         console.error('Error checking favorite status:', error);
         return false;
       }
 
-      return data as boolean;
+      return !!data;
     } catch (error) {
-      console.error('Error in isFavorite:', error);
+      console.error('Exception checking favorite status:', error);
       return false;
     }
   }
 
   /**
-   * Get user's favorite products
+   * Toggle favorite status for a product
+   */
+  async toggleFavorite(productId: string): Promise<{ success: boolean; isFavorite: boolean; message: string }> {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        return {
+          success: false,
+          isFavorite: false,
+          message: 'يجب تسجيل الدخول أولاً'
+        };
+      }
+
+      const isCurrentlyFavorite = await this.isFavorite(productId);
+
+      if (isCurrentlyFavorite) {
+        // Remove from favorites
+        const { error } = await supabase
+          .from('user_favorites')
+          .delete()
+          .eq('user_id', currentUser.user_id)
+          .eq('product_id', productId);
+
+        if (error) {
+          console.error('Error removing favorite:', error);
+          return {
+            success: false,
+            isFavorite: true,
+            message: 'فشل في إزالة المنتج من المفضلة'
+          };
+        }
+
+        this.notify(productId, false);
+        return {
+          success: true,
+          isFavorite: false,
+          message: 'تم إزالة المنتج من المفضلة'
+        };
+      } else {
+        // Add to favorites
+        const { error } = await supabase
+          .from('user_favorites')
+          .insert({ 
+            user_id: currentUser.user_id, 
+            product_id: productId 
+          });
+
+        if (error) {
+          console.error('Error adding favorite:', error);
+          return {
+            success: false,
+            isFavorite: false,
+            message: 'فشل في إضافة المنتج إلى المفضلة'
+          };
+        }
+
+        this.notify(productId, true);
+        return {
+          success: true,
+          isFavorite: true,
+          message: 'تم إضافة المنتج إلى المفضلة'
+        };
+      }
+    } catch (error) {
+      console.error('Exception in toggleFavorite:', error);
+      return {
+        success: false,
+        isFavorite: false,
+        message: 'حدث خطأ غير متوقع'
+      };
+    }
+  }
+
+  /**
+   * Get all favorite products for current user
    */
   async getFavorites(): Promise<FavoriteProduct[]> {
     try {
       const currentUser = getCurrentUser();
-      if (!currentUser) {
-        console.log('❌ No current user for favorites');
-        return [];
-      }
+      if (!currentUser) return [];
 
-      console.log('📋 Loading user favorites...');
-
-      const { data, error } = await supabase.rpc('get_user_favorites', {
-        p_user_id: currentUser.user_id
-      });
+      const { data, error } = await supabase
+        .from('user_favorites')
+        .select(`
+          id,
+          product_id,
+          created_at,
+          products (
+            name,
+            description,
+            price,
+            discount_price,
+            image_url,
+            is_active,
+            category_id,
+            merchant_id
+          )
+        `)
+        .eq('user_id', currentUser.user_id);
 
       if (error) {
         console.error('Error loading favorites:', error);
         return [];
       }
 
-      console.log('✅ Loaded favorites:', data?.length || 0, 'products');
-      return (data as FavoriteProduct[]) || [];
+      return (data || []).map(item => ({
+        id: item.product_id,
+        name: item.products?.name || '',
+        description: item.products?.description,
+        price: item.products?.price || 0,
+        discount_price: item.products?.discount_price,
+        image_url: item.products?.image_url,
+        is_active: item.products?.is_active || false,
+        category_id: item.products?.category_id,
+        merchant_id: item.products?.merchant_id
+      }));
     } catch (error) {
-      console.error('Error in getFavorites:', error);
+      console.error('Exception loading favorites:', error);
       return [];
-    }
-  }
-
-  /**
-   * Get favorites count for current user
-   */
-  async getFavoritesCount(): Promise<number> {
-    try {
-      const currentUser = getCurrentUser();
-      if (!currentUser) {
-        return 0;
-      }
-
-      const { data, error } = await supabase.rpc('get_favorites_count', {
-        p_user_id: currentUser.user_id
-      });
-
-      if (error) {
-        console.error('Error getting favorites count:', error);
-        return 0;
-      }
-
-      return (data as number) || 0;
-    } catch (error) {
-      console.error('Error in getFavoritesCount:', error);
-      return 0;
-    }
-  }
-
-  /**
-   * Get multiple products' favorite status
-   */
-  async getFavoriteStatuses(productIds: string[]): Promise<Record<string, boolean>> {
-    try {
-      const currentUser = getCurrentUser();
-      if (!currentUser || productIds.length === 0) {
-        return {};
-      }
-
-      const results: Record<string, boolean> = {};
-
-      // Check each product (could be optimized with a batch function if needed)
-      await Promise.all(
-        productIds.map(async (productId) => {
-          results[productId] = await this.isFavorite(productId);
-        })
-      );
-
-      return results;
-    } catch (error) {
-      console.error('Error in getFavoriteStatuses:', error);
-      return {};
-    }
-  }
-
-  /**
-   * Clear all favorites for current user (useful for logout)
-   */
-  async clearAllFavorites(): Promise<boolean> {
-    try {
-      const currentUser = getCurrentUser();
-      if (!currentUser) {
-        return false;
-      }
-
-      const { error } = await supabase
-        .from('user_favorites')
-        .delete()
-        .eq('user_id', currentUser.user_id);
-
-      if (error) {
-        console.error('Error clearing favorites:', error);
-        return false;
-      }
-
-      console.log('✅ All favorites cleared');
-      return true;
-    } catch (error) {
-      console.error('Error in clearAllFavorites:', error);
-      return false;
     }
   }
 }
 
-export const favoritesManager = new FavoritesManager(); 
+export const favoritesManager = FavoritesManager.getInstance(); 

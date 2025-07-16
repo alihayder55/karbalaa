@@ -11,7 +11,9 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
   Keyboard,
-  Modal
+  Modal,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -233,7 +235,8 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -246,81 +249,82 @@ export default function RegisterScreen() {
           >
             <View style={styles.content}>
               <View style={styles.header}>
-                <Text style={styles.title}>إنشاء حساب جديد</Text>
-                <Text style={styles.subtitle}>أدخل بياناتك للبدء</Text>
-                <Text style={styles.whatsappNote}>
-                  سيتم إرسال رمز التحقق عبر WhatsApp أو SMS
-                </Text>
+                <TouchableOpacity 
+                  style={styles.backButton}
+                  onPress={() => router.back()}
+                >
+                  <MaterialIcons name="arrow-back" size={24} color="#40E0D0" />
+                </TouchableOpacity>
+                <View style={styles.headerContent}>
+                  <Text style={styles.title}>إنشاء حساب جديد</Text>
+                  <Text style={styles.subtitle}>أدخل بياناتك للبدء</Text>
+                </View>
               </View>
 
               <View style={styles.formContainer}>
-                <View style={styles.inputContainer}>
+                <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>الاسم الكامل</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="أدخل اسمك الكامل"
-                    placeholderTextColor="#999"
-                    value={name}
-                    onChangeText={setName}
-                    textAlign="right"
-                    autoCapitalize="words"
-                  />
+                  <View style={styles.inputContainer}>
+                    <MaterialIcons name="person" size={20} color="#40E0D0" />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="أدخل اسمك الكامل"
+                      placeholderTextColor="#999"
+                      value={name}
+                      onChangeText={setName}
+                      textAlign="right"
+                    />
+                  </View>
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>رقم الهاتف</Text>
                   <View style={styles.phoneInputContainer}>
                     <TouchableOpacity
-                      style={styles.countryPicker}
+                      style={styles.countrySelector}
                       onPress={() => setShowCountryPicker(true)}
                     >
-                      <View style={styles.countryInfo}>
-                        <Text style={styles.countryCode}>{selectedCountry?.dialCode || '+966'}</Text>
-                        <Text style={styles.countryName}>{selectedCountry?.name || 'السعودية'}</Text>
-                      </View>
-                      <MaterialIcons name="keyboard-arrow-down" size={24} color="#007AFF" />
+                      <Text style={styles.countryCode}>{selectedCountry.dialCode}</Text>
+                      <MaterialIcons name="keyboard-arrow-down" size={20} color="#666" />
                     </TouchableOpacity>
-                    <View style={styles.phoneInputDivider} />
                     <TextInput
                       style={styles.phoneInput}
-                      placeholder="رقم الهاتف"
+                      placeholder="7XXXXXXXX"
                       placeholderTextColor="#999"
-                      value={phoneNumber || ''}
+                      value={phoneNumber}
                       onChangeText={handlePhoneChange}
-                      textAlign="right"
                       keyboardType="phone-pad"
-                      maxLength={15}
+                      textAlign="right"
                     />
                   </View>
-                  {formattedValue && !isValidPhone && (
-                    <Text style={styles.errorText}>
-                      الرجاء إدخال رقم هاتف صحيح
-                    </Text>
+                  {!isValidPhone && phoneNumber.length > 0 && (
+                    <Text style={styles.errorText}>رقم الهاتف غير صحيح</Text>
                   )}
                 </View>
 
                 <TouchableOpacity
-                  style={[
-                    styles.button, 
-                    (!isValidPhone || !name.trim() || loading) && styles.buttonDisabled
-                  ]}
+                  style={[styles.registerButton, loading && styles.buttonDisabled]}
                   onPress={handleRegister}
-                  disabled={loading || !isValidPhone || !name.trim()}
+                  disabled={loading}
                 >
                   <View style={styles.buttonContent}>
-                    <MaterialIcons name="message" size={20} color="#fff" />
+                    <MaterialIcons 
+                      name={loading ? "hourglass-empty" : "person-add"} 
+                      size={24} 
+                      color="#fff" 
+                    />
                     <Text style={styles.buttonText}>
-                      {loading ? 'جاري الإرسال...' : 'إنشاء الحساب عبر WhatsApp'}
+                      {loading ? 'جاري التسجيل...' : 'إنشاء الحساب'}
                     </Text>
                   </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={styles.linkButton}
-                  onPress={() => router.push('/auth/login')}
-                >
-                  <Text style={styles.linkText}>لديك حساب بالفعل؟ سجل دخولك</Text>
-                </TouchableOpacity>
+                <View style={styles.infoBox}>
+                  <MaterialIcons name="security" size={20} color="#28a745" />
+                  <Text style={styles.infoText}>
+                    بياناتك محمية ومشفرة بالكامل
+                  </Text>
+                </View>
               </View>
             </View>
           </ScrollView>
@@ -338,39 +342,26 @@ export default function RegisterScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>اختر الدولة</Text>
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={() => setShowCountryPicker(false)}
-              >
-                <MaterialIcons name="close" size={24} color="#333" />
+              <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                <MaterialIcons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.countryList} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.countryList}>
               {countries.map((country) => (
                 <TouchableOpacity
                   key={country.code}
-                  style={[
-                    styles.countryItem,
-                    selectedCountry?.code === country.code && styles.selectedCountryItem
-                  ]}
+                  style={styles.countryItem}
                   onPress={() => selectCountry(country)}
                 >
-                  <View style={styles.countryItemContent}>
-                    <View style={styles.countryItemInfo}>
-                      <Text style={styles.countryItemName}>{country.name}</Text>
-                      <Text style={styles.countryItemCode}>{country.dialCode}</Text>
-                    </View>
-                    {selectedCountry?.code === country.code && (
-                      <MaterialIcons name="check" size={20} color="#007AFF" />
-                    )}
-                  </View>
+                  <Text style={styles.countryName}>{country.name}</Text>
+                  <Text style={styles.countryDialCode}>{country.dialCode}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -387,74 +378,96 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 30,
-    justifyContent: 'center',
+    padding: 20,
   },
   header: {
+    marginBottom: 32,
+  },
+  backButton: {
+    marginBottom: 16,
+    padding: 8,
+  },
+  headerContent: {
     alignItems: 'center',
-    marginBottom: 40,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
     color: '#333',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  whatsappNote: {
-    fontSize: 14,
-    color: '#007AFF',
     textAlign: 'center',
   },
   formContainer: {
-    width: '100%',
+    flex: 1,
   },
-  inputContainer: {
-    marginBottom: 20,
+  inputGroup: {
+    marginBottom: 24,
   },
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 8,
-    textAlign: 'right',
   },
-  input: {
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f8f9fa',
-    padding: 16,
     borderRadius: 12,
-    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#e9ecef',
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 12,
+  },
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    overflow: 'hidden',
+  },
+  countrySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#e9ecef',
+    gap: 4,
+  },
+  countryCode: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#333',
   },
-  errorText: {
-    color: '#dc3545',
-    fontSize: 14,
-    marginTop: 5,
-    textAlign: 'center',
+  phoneInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  button: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
+  errorText: {
+    fontSize: 14,
+    color: '#ff4757',
+    marginTop: 4,
+  },
+  registerButton: {
+    backgroundColor: '#40E0D0',
     borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
+    paddingVertical: 16,
     marginBottom: 20,
-    shadowColor: '#007AFF',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -462,64 +475,26 @@ const styles = StyleSheet.create({
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
-    marginLeft: 8,
   },
-  linkButton: {
-    alignItems: 'center',
-  },
-  linkText: {
-    color: '#007AFF',
-    fontSize: 16,
-  },
-  countryPicker: {
+  infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minWidth: 120,
-  },
-  countryInfo: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  countryCode: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginBottom: 2,
-  },
-  countryName: {
-    fontSize: 12,
-    color: '#666',
-  },
-  phoneInput: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'right',
-  },
-  phoneInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
     backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e9ecef',
     borderRadius: 12,
-    padding: 4,
   },
-  phoneInputDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#e9ecef',
-    marginHorizontal: 8,
+  infoText: {
+    fontSize: 14,
+    color: '#666',
   },
   modalOverlay: {
     flex: 1,
@@ -530,62 +505,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
     maxHeight: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 15,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
   },
-  closeButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-  },
   countryList: {
-    maxHeight: 400,
+    padding: 20,
   },
   countryItem: {
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginBottom: 5,
-  },
-  countryItemContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  countryItemInfo: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
+  countryName: {
+    fontSize: 16,
+    color: '#333',
   },
-  countryItemName: {
+  countryDialCode: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  countryItemCode: {
-    fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  selectedCountryItem: {
-    backgroundColor: '#f0f8ff',
-    borderWidth: 1,
-    borderColor: '#007AFF',
+    color: '#40E0D0',
   },
 }); 

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -11,7 +10,9 @@ import {
   Image,
   Platform,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { cartManager, CartItem } from '../../../lib/cart-manager';
@@ -96,9 +97,10 @@ export default function StoreOwnerCheckout() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6B35" />
+          <ActivityIndicator size="large" color="#40E0D0" />
           <Text style={styles.loadingText}>جاري تحميل الطلب...</Text>
         </View>
       </SafeAreaView>
@@ -107,10 +109,11 @@ export default function StoreOwnerCheckout() {
 
   if (cartItems.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={24} color="#333" />
+          <TouchableOpacity onPress={() => router.push('/store-owner')}>
+            <MaterialIcons name="arrow-back" size={24} color="#40E0D0" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>إتمام الطلب</Text>
           <View style={{ width: 24 }} />
@@ -134,10 +137,11 @@ export default function StoreOwnerCheckout() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
+        <TouchableOpacity onPress={() => router.push('/store-owner')}>
+          <MaterialIcons name="arrow-back" size={24} color="#40E0D0" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>إتمام الطلب</Text>
         <View style={{ width: 24 }} />
@@ -147,7 +151,7 @@ export default function StoreOwnerCheckout() {
         {/* Order Items */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="shopping-cart" size={24} color="#FF6B35" />
+            <MaterialIcons name="shopping-cart" size={24} color="#40E0D0" />
             <Text style={styles.sectionTitle}>عناصر الطلب</Text>
           </View>
           
@@ -158,7 +162,7 @@ export default function StoreOwnerCheckout() {
                   <Image source={{ uri: item.product.image_url }} style={styles.itemImage} />
                 ) : (
                   <View style={styles.itemImagePlaceholder}>
-                    <MaterialIcons name="image" size={24} color="#ccc" />
+                    <MaterialIcons name="inventory" size={24} color="#666" />
                   </View>
                 )}
               </View>
@@ -183,7 +187,7 @@ export default function StoreOwnerCheckout() {
         {/* Order Notes */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="note" size={24} color="#FF6B35" />
+            <MaterialIcons name="note" size={24} color="#40E0D0" />
             <Text style={styles.sectionTitle}>ملاحظات الطلب (اختياري)</Text>
           </View>
           
@@ -202,7 +206,7 @@ export default function StoreOwnerCheckout() {
         {/* Order Summary */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="receipt" size={24} color="#FF6B35" />
+            <MaterialIcons name="receipt" size={24} color="#40E0D0" />
             <Text style={styles.sectionTitle}>ملخص الطلب</Text>
           </View>
           
@@ -227,7 +231,7 @@ export default function StoreOwnerCheckout() {
         {/* Order Information */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="info" size={24} color="#FF6B35" />
+            <MaterialIcons name="info" size={24} color="#40E0D0" />
             <Text style={styles.sectionTitle}>معلومات مهمة</Text>
           </View>
           
@@ -249,30 +253,29 @@ export default function StoreOwnerCheckout() {
             <View style={styles.infoItem}>
               <MaterialIcons name="payment" size={20} color="#28A745" />
               <Text style={styles.infoText}>
-                الدفع عند الاستلام أو حسب اتفاق مع التاجر
+                الدفع عند الاستلام أو حسب الاتفاق
               </Text>
             </View>
           </View>
         </View>
+        
+        {/* Place Order Button - Inside Page Content */}
+        <View style={styles.placeOrderButtonContainer}>
+          <TouchableOpacity
+            style={styles.placeOrderButton}
+            onPress={handlePlaceOrder}
+            disabled={placing || cartItems.length === 0}
+          >
+            <MaterialIcons name="shopping-cart-checkout" size={32} color="#fff" />
+            <Text style={styles.placeOrderText}>
+              {placing ? 'جاري إنشاء الطلب...' : 'إتمام الطلب'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Bottom Spacing for Tab Bar */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-
-      {/* Place Order Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.placeOrderButton}
-          onPress={handlePlaceOrder}
-          disabled={placing}
-        >
-          {placing ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <>
-              <MaterialIcons name="check-circle" size={24} color="#fff" />
-              <Text style={styles.placeOrderText}>تأكيد الطلب</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -280,7 +283,21 @@ export default function StoreOwnerCheckout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
   loadingContainer: {
     flex: 1,
@@ -288,9 +305,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
     color: '#666',
+    marginTop: 12,
   },
   emptyContainer: {
     flex: 1,
@@ -302,79 +319,59 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 24,
+    marginBottom: 12,
   },
   emptyText: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
   },
   browseButton: {
-    backgroundColor: '#FF6B35',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#40E0D0',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowColor: '#40E0D0',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 12,
+    borderWidth: 2,
+    borderColor: '#40E0D0',
   },
   browseButtonText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
-  },
-  header: {
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  headerTitle: {
-    fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   scrollView: {
     flex: 1,
   },
   section: {
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    marginVertical: 8,
-    borderRadius: 16,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginLeft: 8,
   },
   orderItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
   },
   itemImageContainer: {
     width: 60,
@@ -390,18 +387,20 @@ const styles = StyleSheet.create({
   itemImagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#e9ecef',
     justifyContent: 'center',
     alignItems: 'center',
   },
   itemDetails: {
     flex: 1,
+    justifyContent: 'space-between',
   },
   itemName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 8,
+    lineHeight: 18,
   },
   itemPriceRow: {
     flexDirection: 'row',
@@ -409,24 +408,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   itemQuantity: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
   },
   itemPrice: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#40E0D0',
   },
   notesInput: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     color: '#333',
-    backgroundColor: '#f8f9fa',
+    textAlignVertical: 'top',
     minHeight: 100,
-    textAlign: 'right',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   summaryRow: {
     flexDirection: 'row',
@@ -445,9 +444,9 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#e9ecef',
     marginTop: 8,
-    paddingTop: 12,
+    paddingTop: 16,
   },
   totalLabel: {
     fontSize: 18,
@@ -457,45 +456,76 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#40E0D0',
   },
   infoContainer: {
     gap: 12,
   },
   infoItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 12,
   },
   infoText: {
     fontSize: 14,
     color: '#666',
-    marginLeft: 8,
     flex: 1,
     lineHeight: 20,
   },
   footer: {
-    backgroundColor: '#fff',
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#f0f0f0',
+  },
+  placeOrderButtonContainer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fixedFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   placeOrderButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#40E0D0',
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    justifyContent: 'center',
+    paddingVertical: 24,
+    borderRadius: 20,
+    gap: 16,
+    shadowColor: '#40E0D0',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 16,
+    borderWidth: 3,
+    borderColor: '#40E0D0',
   },
   placeOrderText: {
-    color: '#fff',
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginLeft: 8,
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  bottomSpacing: {
+    height: 100, // Adjust as needed for spacing
   },
 }); 

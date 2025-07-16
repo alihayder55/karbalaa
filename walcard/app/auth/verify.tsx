@@ -11,7 +11,8 @@ import {
   Animated,
   Dimensions,
   TextInput,
-  SafeAreaView
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -283,6 +284,7 @@ export default function VerifyScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -303,151 +305,133 @@ export default function VerifyScreen() {
               }
             ]}
           >
+            {/* Header */}
             <View style={styles.header}>
-              <View style={styles.verificationContainer}>
-                <View style={styles.verificationIconContainer}>
-                  <MaterialIcons name="verified-user" size={80} color="#007AFF" />
-                  <View style={styles.verificationIconBackground} />
-                </View>
-                <Text style={styles.verificationTitle}>التحقق من الرمز</Text>
-                <Text style={styles.verificationSubtitle}>
-                  {params.isRegistration === 'true' 
-                    ? 'أدخل رمز التحقق لإكمال التسجيل'
-                    : 'أدخل رمز التحقق لتسجيل الدخول'
-                  }
-                </Text>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => router.back()}
+              >
+                <MaterialIcons name="arrow-back" size={24} color="#40E0D0" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>التحقق من الحساب</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            {/* Verification Icon */}
+            <View style={styles.verificationContainer}>
+              <View style={styles.iconContainer}>
+                <MaterialIcons name="verified-user" size={60} color="#40E0D0" />
+                <View style={styles.iconBackground} />
+              </View>
+              <Text style={styles.verificationTitle}>التحقق من الرمز</Text>
+              <Text style={styles.verificationSubtitle}>
+                {params.isRegistration === 'true' 
+                  ? 'أدخل رمز التحقق لإكمال التسجيل'
+                  : 'أدخل رمز التحقق لتسجيل الدخول'
+                }
+              </Text>
+            </View>
+
+            {/* Phone Display */}
+            <View style={styles.phoneCard}>
+              <View style={styles.phoneHeader}>
+                <MaterialIcons name="phone" size={20} color="#40E0D0" />
+                <Text style={styles.phoneLabel}>رقم الهاتف</Text>
+              </View>
+              <Text style={styles.phoneValue}>{phone}</Text>
+            </View>
+
+            {/* OTP Input */}
+            <View style={styles.otpCard}>
+              <View style={styles.otpHeader}>
+                <MaterialIcons name="lock" size={20} color="#40E0D0" />
+                <Text style={styles.otpLabel}>رمز التحقق</Text>
+              </View>
+              <Text style={styles.otpHint}>
+                تحقق من رسائل WhatsApp أو SMS الخاصة بك
+              </Text>
+              
+              <View style={styles.otpInputContainer}>
+                <TextInput
+                  style={styles.otpInput}
+                  placeholder="000000"
+                  placeholderTextColor="#999"
+                  value={otp}
+                  onChangeText={setOtp}
+                  keyboardType="numeric"
+                  maxLength={6}
+                  textAlign="center"
+                  autoFocus={true}
+                />
               </View>
             </View>
 
-            <View style={styles.formContainer}>
-              <View style={styles.phoneDisplay}>
-                <Text style={styles.phoneLabel}>رقم الهاتف:</Text>
-                <View style={styles.phoneValueContainer}>
-                  <MaterialIcons name="phone" size={20} color="#007AFF" />
-                  <Text style={styles.phoneValue}>{phone}</Text>
-                </View>
-              </View>
-
-              <View style={styles.otpContainer}>
-                <Text style={styles.otpLabel}>أدخل رمز التحقق</Text>
-                <Text style={styles.otpHint}>
-                  تحقق من رسائل WhatsApp أو SMS الخاصة بك
+            {/* Registration Note */}
+            {params.isRegistration === 'true' && (
+              <View style={styles.infoCard}>
+                <MaterialIcons name="info" size={20} color="#28a745" />
+                <Text style={styles.infoText}>
+                  سيتم إنشاء حساب جديد بعد التحقق من الرمز
                 </Text>
-                
-                <View style={styles.otpInputContainer}>
-                  {otpInputError ? (
-                    <View style={styles.otpErrorContainer}>
-                      <Text style={styles.otpErrorText}>
-                        حدث خطأ في إدخال الرمز، حاول مرة أخرى
-                      </Text>
-                      <TouchableOpacity 
-                        style={styles.retryButton}
-                        onPress={() => setOtpInputError(false)}
-                      >
-                        <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
-                      </TouchableOpacity>
-                      
-                      {/* Fallback text input */}
-                      <View style={styles.fallbackInputContainer}>
-                        <Text style={styles.fallbackInputLabel}>
-                          أو أدخل الرمز يدوياً:
-                        </Text>
-                        <TextInput
-                          style={styles.fallbackInput}
-                          placeholder="000000"
-                          placeholderTextColor="#999"
-                          value={otp}
-                          onChangeText={setOtp}
-                          keyboardType="numeric"
-                          maxLength={6}
-                          textAlign="center"
-                          autoFocus={false}
-                        />
-                      </View>
-                    </View>
-                  ) : (
-                    <View style={styles.otpWrapper}>
-                      {/* Temporary simple OTP input for testing */}
-                      <Text style={styles.otpLabel}>أدخل رمز التحقق (6 أرقام):</Text>
-                      <TextInput
-                        style={styles.simpleOtpInput}
-                        placeholder="000000"
-                        placeholderTextColor="#999"
-                        value={otp}
-                        onChangeText={setOtp}
-                        keyboardType="numeric"
-                        maxLength={6}
-                        textAlign="center"
-                        autoFocus={true}
-                  />
-                    </View>
-                  )}
-                </View>
               </View>
+            )}
 
-              {params.isRegistration === 'true' && (
-                <View style={styles.registrationNote}>
-                  <MaterialIcons name="info" size={16} color="#28a745" />
-                  <Text style={styles.registrationNoteText}>
-                    سيتم إنشاء حساب جديد بعد التحقق من الرمز
-                  </Text>
-                </View>
-              )}
+            {/* Verify Button */}
+            <TouchableOpacity
+              style={[styles.verifyButton, loading && styles.buttonDisabled]}
+              onPress={handleVerify}
+              disabled={loading}
+            >
+              <View style={styles.buttonContent}>
+                <MaterialIcons 
+                  name={loading ? "hourglass-empty" : "check-circle"} 
+                  size={24} 
+                  color="#fff" 
+                />
+                <Text style={styles.buttonText}>
+                  {loading ? 'جاري التحقق...' : 'تحقق من الرمز'}
+                </Text>
+              </View>
+            </TouchableOpacity>
 
+            {/* Resend Section */}
+            <View style={styles.resendCard}>
+              <Text style={styles.resendLabel}>لم تستلم الرمز؟</Text>
               <TouchableOpacity
-                style={[styles.verifyButton, loading && styles.buttonDisabled]}
-                onPress={handleVerify}
-                disabled={loading}
+                style={[
+                  styles.resendButton,
+                  (resendLoading || countdown > 0) && styles.resendButtonDisabled
+                ]}
+                onPress={handleResend}
+                disabled={resendLoading || countdown > 0}
               >
-                <View style={styles.buttonContent}>
+                <View style={styles.resendButtonContent}>
                   <MaterialIcons 
-                    name={loading ? "hourglass-empty" : "check-circle"} 
-                    size={24} 
-                    color="#fff" 
+                    name={resendLoading ? "hourglass-empty" : "refresh"} 
+                    size={20} 
+                    color={countdown > 0 ? "#999" : "#40E0D0"} 
                   />
-                  <Text style={styles.buttonText}>
-                    {loading ? 'جاري التحقق...' : 'تحقق من الرمز'}
+                  <Text style={[
+                    styles.resendButtonText,
+                    countdown > 0 && styles.resendButtonTextDisabled
+                  ]}>
+                    {resendLoading 
+                      ? 'جاري الإرسال...' 
+                      : countdown > 0 
+                        ? `إعادة الإرسال (${countdown})` 
+                        : 'إعادة الإرسال'
+                    }
                   </Text>
                 </View>
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.resendSection}>
-                <Text style={styles.resendLabel}>لم تستلم الرمز؟</Text>
-                  <TouchableOpacity
-                  style={[
-                    styles.resendButton,
-                    (resendLoading || countdown > 0) && styles.resendButtonDisabled
-                  ]}
-                    onPress={handleResend}
-                    disabled={resendLoading || countdown > 0}
-                  >
-                    <View style={styles.resendButtonContent}>
-                      <MaterialIcons 
-                        name={resendLoading ? "hourglass-empty" : "refresh"} 
-                        size={20} 
-                        color={countdown > 0 ? "#999" : "#007AFF"} 
-                      />
-                    <Text style={[
-                      styles.resendButtonText,
-                      countdown > 0 && styles.resendButtonTextDisabled
-                    ]}>
-                      {resendLoading 
-                        ? 'جاري الإرسال...' 
-                        : countdown > 0 
-                          ? `إعادة الإرسال (${countdown})` 
-                          : 'إعادة الإرسال'
-                      }
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-              </View>
-
-              <View style={styles.infoBox}>
-                <MaterialIcons name="security" size={20} color="#28a745" />
-                <Text style={styles.infoText}>
-                  رمز التحقق صالح لمدة 10 دقائق
-                </Text>
-              </View>
+            {/* Security Info */}
+            <View style={styles.securityCard}>
+              <MaterialIcons name="security" size={20} color="#28a745" />
+              <Text style={styles.securityText}>
+                رمز التحقق صالح لمدة 10 دقائق
+              </Text>
             </View>
           </Animated.View>
         </ScrollView>
@@ -459,7 +443,7 @@ export default function VerifyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f9fa',
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -475,140 +459,146 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 30,
+    paddingHorizontal: 10,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
   verificationContainer: {
     alignItems: 'center',
+    marginBottom: 30,
   },
-  verificationIconContainer: {
+  iconContainer: {
     position: 'relative',
+    marginBottom: 20,
   },
-  verificationIconBackground: {
+  iconBackground: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 40,
-    backgroundColor: '#fff',
-    opacity: 0.5,
+    top: -10,
+    left: -10,
+    right: -10,
+    bottom: -10,
+    borderRadius: 50,
+    backgroundColor: '#e0f7fa',
+    opacity: 0.3,
   },
   verificationTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
     color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   verificationSubtitle: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 10,
     textAlign: 'center',
+    lineHeight: 22,
   },
-  formContainer: {
-    flex: 1,
-  },
-  phoneDisplay: {
+  phoneCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  phoneLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  phoneValueContainer: {
+  phoneHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  phoneLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginLeft: 8,
   },
   phoneValue: {
-    fontSize: 16,
-    marginLeft: 10,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  otpContainer: {
+  otpCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  otpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   otpLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
   },
   otpHint: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 10,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   otpInputContainer: {
     alignItems: 'center',
-    marginVertical: 20,
   },
   otpInput: {
-    width: '100%',
+    width: 200,
     height: 60,
-  },
-  otpInputField: {
-    width: 45,
-    height: 55,
     borderWidth: 2,
-    borderColor: '#e9ecef',
+    borderColor: '#e0e0e0',
     borderRadius: 12,
     backgroundColor: '#f8f9fa',
     color: '#333',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
     textAlign: 'center',
   },
-  otpInputHighlight: {
-    borderColor: '#007AFF',
-    backgroundColor: '#fff',
-  },
-  otpErrorContainer: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  otpErrorText: {
-    fontSize: 16,
-    color: '#dc3545',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  retryButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  registrationNote: {
+  infoCard: {
+    backgroundColor: '#e8f5e8',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
   },
-  registrationNoteText: {
+  infoText: {
     fontSize: 14,
     color: '#28a745',
-    textAlign: 'center',
-    fontWeight: '600',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   verifyButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#40E0D0',
     paddingVertical: 16,
     borderRadius: 12,
     width: '100%',
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: '#007AFF',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowColor: '#40E0D0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 5,
   },
   buttonDisabled: {
@@ -622,27 +612,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+    marginLeft: 8,
   },
-  resendSection: {
-    flexDirection: 'row',
+  resendCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
     alignItems: 'center',
-    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   resendLabel: {
     fontSize: 16,
     color: '#666',
+    marginBottom: 12,
   },
   resendButton: {
-    padding: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   resendButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   resendButtonText: {
-    color: '#007AFF',
+    color: '#40E0D0',
     fontSize: 16,
-    marginLeft: 10,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   resendButtonDisabled: {
     opacity: 0.6,
@@ -650,49 +651,23 @@ const styles = StyleSheet.create({
   resendButtonTextDisabled: {
     color: '#999',
   },
-  infoBox: {
+  securityCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  infoText: {
+  securityText: {
     fontSize: 14,
     color: '#666',
-  },
-  fallbackInputContainer: {
-    marginTop: 15,
-    alignItems: 'center',
-  },
-  fallbackInputLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  fallbackInput: {
-    width: 120,
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    color: '#333',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  otpWrapper: {
-    alignItems: 'center',
-  },
-  simpleOtpInput: {
-    width: 120,
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    color: '#333',
-    fontSize: 18,
-    fontWeight: '600',
+    marginLeft: 8,
     textAlign: 'center',
   },
 }); 

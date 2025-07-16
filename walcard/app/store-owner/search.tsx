@@ -9,10 +9,12 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   Dimensions,
   Platform,
+  Animated,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
@@ -27,7 +29,7 @@ interface Product {
   price: number;
   discount_price?: number;
   image_url?: string;
-  available_quantity: number;
+  is_active: boolean;
   category_id: string;
   merchant_id: string;
   category?: {
@@ -39,29 +41,40 @@ interface Product {
 interface Category {
   id: string;
   name: string;
-  name_ar?: string;
   description?: string;
+  image_URL?: string; // <-- update to match DB
+}
+
+interface SubCategory {
+  id: string;
+  name: string;
+  parent_id: string;
+  image_url?: string;
 }
 
 export default function StoreOwnerSearch() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  
   const initialQuery = params.query as string || '';
   const initialCategory = params.category as string || 'all';
   
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [showSubCategories, setShowSubCategories] = useState(false);
+  const [categoryAnimations] = useState(new Map());
 
   useEffect(() => {
     loadCategories();
     if (initialQuery) {
       performSearch(initialQuery);
     } else if (initialCategory !== 'all') {
-      // عرض منتجات الفئة حتى لو لم يكن هناك نص بحث
       loadCategoryProducts(initialCategory);
     }
   }, [initialQuery, initialCategory]);
@@ -69,28 +82,46 @@ export default function StoreOwnerSearch() {
   const loadCategories = async () => {
     try {
       console.log('🔍 Loading categories...');
-      
-      const { data: categoriesData, error: categoriesError } = await supabase
+      const { data, error } = await supabase
         .from('product_categories')
-        .select('id, name, description')
+        .select('id, name, description, image_URL')
+        .order('name');
+      if (error) {
+        console.error('❌ Error loading categories:', error);
+        setCategories([]);
+        return;
+      }
+      console.log('✅ Categories loaded:', data?.length || 0);
+      setCategories(data || []);
+    } catch (error) {
+      console.error('❌ Exception loading categories:', error);
+      setCategories([]);
+    }
+  };
+
+  const loadSubCategories = async (parentId: string) => {
+    try {
+      const { data: subCategoriesData, error: subCategoriesError } = await supabase
+        .from('product_categories')
+        .select('id, name, parent_id, image_url')
+        .eq('parent_id', parentId)
         .order('name');
 
-      if (categoriesError) {
-        console.error('Error loading categories:', categoriesError);
-        setCategories([]);
+      if (subCategoriesError) {
+        console.error('Error loading sub-categories:', subCategoriesError);
+        setSubCategories([]);
       } else {
-        console.log('✅ Categories loaded:', categoriesData?.length || 0);
-        setCategories(categoriesData || []);
+        console.log('✅ Sub-categories loaded:', subCategoriesData?.length || 0);
+        setSubCategories(subCategoriesData || []);
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
-      setCategories([]);
+      console.error('Error loading sub-categories:', error);
+      setSubCategories([]);
     }
   };
 
   const loadCategoryProducts = async (categoryId: string) => {
     if (categoryId === 'all') {
-      // تحميل جميع المنتجات
       await loadAllProducts();
       return;
     }
@@ -108,7 +139,7 @@ export default function StoreOwnerSearch() {
           price,
           discount_price,
           image_url,
-          available_quantity,
+          is_active,
           category_id,
           merchant_id
         `)
@@ -145,13 +176,13 @@ export default function StoreOwnerSearch() {
           price,
           discount_price,
           image_url,
-          available_quantity,
+          is_active,
           category_id,
           merchant_id
         `)
         .eq('is_active', true)
         .order('name')
-        .limit(50); // تحديد لتجنب تحميل آلاف المنتجات
+        .limit(50);
 
       if (error) {
         console.error('Error loading all products:', error);
@@ -182,18 +213,16 @@ export default function StoreOwnerSearch() {
           price,
           discount_price,
           image_url,
-          available_quantity,
+          is_active,
           category_id,
           merchant_id
         `)
         .eq('is_active', true);
 
-      // إضافة فلتر الفئة إذا تم تحديد فئة معينة
       if (selectedCategory !== 'all') {
         supabaseQuery = supabaseQuery.eq('category_id', selectedCategory);
       }
 
-      // إضافة البحث النصي إذا كان هناك نص بحث
       if (query && query.trim()) {
         supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,description.ilike.%${query}%`);
       }
@@ -216,26 +245,28 @@ export default function StoreOwnerSearch() {
   };
 
   const handleSearch = () => {
-    console.log('🔍 Search button pressed, query:', searchQuery);
     if (searchQuery.trim()) {
       performSearch(searchQuery.trim());
-    } else {
-      // إذا لم يكن هناك نص بحث، عرض منتجات الفئة المحددة
-      loadCategoryProducts(selectedCategory);
     }
   };
 
-  const handleCategorySelect = (categoryId: string) => {
-    console.log('🏷️ Category selected:', categoryId);
+  const handleCategorySelect = async (categoryId: string) => {
     setSelectedCategory(categoryId);
+    setSelectedSubCategory('');
+    setShowSubCategories(false);
     
-    if (searchQuery.trim()) {
-      // إذا كان هناك نص بحث، ابحث في الفئة الجديدة
-      performSearch(searchQuery.trim());
-    } else {
-      // إذا لم يكن هناك نص بحث، عرض منتجات الفئة
-      loadCategoryProducts(categoryId);
+    if (categoryId !== 'all') {
+      await loadSubCategories(categoryId);
+      setShowSubCategories(true);
     }
+    
+    await loadCategoryProducts(categoryId);
+  };
+
+  const handleSubCategorySelect = (subCategoryId: string) => {
+    setSelectedSubCategory(subCategoryId);
+    // Load products for sub-category
+    loadCategoryProducts(subCategoryId);
   };
 
   const handleProductPress = (product: Product) => {
@@ -253,23 +284,138 @@ export default function StoreOwnerSearch() {
     return Math.round(((originalPrice - discountPrice) / originalPrice) * 100);
   };
 
+  const renderCategoryItem = (category: Category, isActive: boolean) => (
+    <TouchableOpacity
+      key={category.id}
+      style={[styles.categoryCard, isActive && styles.categoryCardActive]}
+      onPress={() => handleCategorySelect(category.id)}
+    >
+      <View style={styles.categoryIcon}>
+        {category.image_URL ? (
+          <Image
+            source={{ uri: category.image_URL }}
+            style={{ width: 32, height: 32, borderRadius: 16 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <MaterialIcons 
+            name="category" 
+            size={24} 
+            color={isActive ? '#fff' : '#40E0D0'} 
+          />
+        )}
+      </View>
+      <Text style={[styles.categoryName, isActive && styles.categoryNameActive]}>
+        {category.name}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderSubCategoryItem = (subCategory: SubCategory, isActive: boolean) => (
+    <TouchableOpacity
+      key={subCategory.id}
+      style={[styles.subCategoryCard, isActive && styles.subCategoryCardActive]}
+      onPress={() => handleSubCategorySelect(subCategory.id)}
+    >
+      <Text style={[styles.subCategoryName, isActive && styles.subCategoryNameActive]}>
+        {subCategory.name}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderProductItem = (product: Product) => (
+    <TouchableOpacity
+      key={product.id}
+      style={styles.productCard}
+      onPress={() => handleProductPress(product)}
+    >
+      <View style={styles.productImageContainer}>
+        {product.image_url ? (
+          <Image
+            source={{ uri: product.image_url }}
+            style={styles.productImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.productImagePlaceholder}>
+            <MaterialIcons name="inventory" size={40} color="#666" />
+          </View>
+        )}
+        {product.discount_price && (
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>
+              {getDiscountPercentage(product.price, product.discount_price)}%
+            </Text>
+          </View>
+        )}
+        <View style={styles.favoriteButton}>
+          <FavoriteButton 
+            productId={product.id} 
+            key={`favorite-${product.id}`}
+            onToggle={(isFavorite) => {
+              console.log(`Favorite toggled for product ${product.id}: ${isFavorite}`);
+            }}
+          />
+        </View>
+      </View>
+      
+      <View style={styles.productContent}>
+        <Text style={styles.productName} numberOfLines={2}>
+          {product.name}
+        </Text>
+        {product.description && (
+          <Text style={styles.productDescription} numberOfLines={1}>
+            {product.description}
+          </Text>
+        )}
+        <View style={styles.productPriceContainer}>
+          {product.discount_price ? (
+            <>
+              <Text style={styles.discountPrice}>
+                {formatPrice(product.discount_price)}
+              </Text>
+              <Text style={styles.originalPrice}>
+                {formatPrice(product.price)}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.productPrice}>
+              {formatPrice(product.price)}
+            </Text>
+          )}
+        </View>
+        <View style={styles.availabilityContainer}>
+          <MaterialIcons 
+            name={product.is_active ? "check-circle" : "cancel"} 
+            size={14} 
+            color={product.is_active ? "#28A745" : "#DC3545"} 
+          />
+          <Text style={[
+            styles.availabilityText,
+            { color: product.is_active ? "#28A745" : "#DC3545" }
+          ]}>
+            {product.is_active ? 'متوفر' : 'غير متوفر'}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>البحث</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>البحث</Text>
+          <View style={styles.headerSpacer} />
+        </View>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
+        <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color="#666" />
           <TextInput
             style={styles.searchInput}
@@ -281,179 +427,111 @@ export default function StoreOwnerSearch() {
             returnKeyType="search"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity
+            <TouchableOpacity 
               style={styles.clearButton}
-              onPress={() => {
-                setSearchQuery('');
-                // عرض منتجات الفئة المحددة بعد مسح البحث
-                loadCategoryProducts(selectedCategory);
-              }}
+              onPress={() => setSearchQuery('')}
             >
               <MaterialIcons name="close" size={20} color="#666" />
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity
+        <TouchableOpacity 
           style={styles.searchButton}
           onPress={handleSearch}
-          disabled={searching}
         >
-          {searching ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <MaterialIcons name="search" size={20} color="#fff" />
-          )}
+          <MaterialIcons name="search" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Categories Filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={[
-            styles.categoryButton,
-            selectedCategory === 'all' && styles.categoryButtonActive
-          ]}
-          onPress={() => handleCategorySelect('all')}
-        >
-          <Text style={[
-            styles.categoryButtonText,
-            selectedCategory === 'all' && styles.categoryButtonTextActive
-          ]}>
-            الكل
-          </Text>
-        </TouchableOpacity>
-        
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category.id && styles.categoryButtonActive
-            ]}
-            onPress={() => handleCategorySelect(category.id)}
+        {/* Categories */}
+        <View style={styles.categoriesSection}>
+          <Text style={styles.sectionTitle}>الفئات ({categories.length})</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoriesScroll}
+            contentContainerStyle={styles.categoriesContainer}
           >
-            <Text style={[
-              styles.categoryButtonText,
-              selectedCategory === category.id && styles.categoryButtonTextActive
-            ]}>
-              {category.name_ar || category.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Results */}
-      <ScrollView style={styles.resultsContainer} showsVerticalScrollIndicator={false}>
-        {searching ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF6B35" />
-            <Text style={styles.loadingText}>جاري البحث...</Text>
-          </View>
-        ) : products.length === 0 && (searchQuery.trim() || selectedCategory !== 'all') ? (
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="search-off" size={80} color="#ccc" />
-            <Text style={styles.emptyTitle}>لا توجد نتائج</Text>
-            <Text style={styles.emptyText}>
-              {searchQuery.trim() 
-                ? `لم يتم العثور على منتجات تطابق "${searchQuery}"`
-                : 'لا توجد منتجات في هذه الفئة'
-              }
-            </Text>
-          </View>
-        ) : !searchQuery.trim() && selectedCategory === 'all' && products.length === 0 ? (
-          <View style={styles.initialContainer}>
-            <MaterialIcons name="search" size={80} color="#ccc" />
-            <Text style={styles.initialTitle}>ابحث عن المنتجات</Text>
-            <Text style={styles.initialText}>
-              اكتب اسم المنتج أو الوصف للعثور على ما تبحث عنه، أو اختر فئة لعرض منتجاتها
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.productsContainer}>
-            <Text style={styles.resultsCount}>
-              {searchQuery.trim() 
-                ? `تم العثور على ${products.length} منتج`
-                : selectedCategory === 'all'
-                  ? `عرض ${products.length} منتج`
-                  : `${products.length} منتج في هذه الفئة`
-              }
-            </Text>
+            <TouchableOpacity
+              style={[
+                styles.categoryCard,
+                selectedCategory === 'all' && styles.categoryCardActive
+              ]}
+              onPress={() => handleCategorySelect('all')}
+            >
+              <View style={styles.categoryIcon}>
+                <MaterialIcons 
+                  name="apps" 
+                  size={24} 
+                  color={selectedCategory === 'all' ? '#fff' : '#40E0D0'} 
+                />
+              </View>
+              <Text style={[styles.categoryName, selectedCategory === 'all' && styles.categoryNameActive]}>
+                الكل
+              </Text>
+            </TouchableOpacity>
             
-            <View style={styles.productsGrid}>
-              {products.map((product) => (
-                <TouchableOpacity
-                  key={product.id}
-                  style={styles.productCard}
-                  onPress={() => handleProductPress(product)}
-                >
-                  <View style={styles.productImageContainer}>
-                    {product.image_url ? (
-                      <Image
-                        source={{ uri: product.image_url }}
-                        style={styles.productImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.productImagePlaceholder}>
-                        <MaterialIcons name="inventory" size={40} color="#ccc" />
-                      </View>
-                    )}
-                    {product.discount_price && (
-                      <View style={styles.discountBadge}>
-                        <Text style={styles.discountText}>
-                          {getDiscountPercentage(product.price, product.discount_price)}%
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.favoriteButtonContainer}>
-                      <FavoriteButton 
-                        productId={product.id} 
-                        size={18}
-                        showToast={false}
-                        style={styles.favoriteButtonStyle}
-                      />
-                    </View>
-                  </View>
-                  
-                  <View style={styles.productContent}>
-                    <Text style={styles.productName} numberOfLines={2}>
-                      {product.name}
-                    </Text>
-                    {product.description && (
-                      <Text style={styles.productDescription} numberOfLines={1}>
-                        {product.description}
-                      </Text>
-                    )}
-                    <View style={styles.productPriceContainer}>
-                      {product.discount_price ? (
-                        <>
-                          <Text style={styles.discountPrice}>
-                            {formatPrice(product.discount_price)}
-                          </Text>
-                          <Text style={styles.originalPrice}>
-                            {formatPrice(product.price)}
-                          </Text>
-                        </>
-                      ) : (
-                        <Text style={styles.productPrice}>
-                          {formatPrice(product.price)}
-                        </Text>
-                      )}
-                    </View>
-                    <Text style={styles.productQuantity}>
-                      المتوفر: {product.available_quantity} قطعة
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+            {categories.length === 0 ? (
+              <View style={styles.emptyCategoriesContainer}>
+                <Text style={styles.emptyCategoriesText}>لا توجد فئات متاحة</Text>
+                <Text style={styles.emptyCategoriesSubtext}>عدد الفئات المحملة: {categories.length}</Text>
+              </View>
+            ) : (
+              categories.map((category) => renderCategoryItem(category, selectedCategory === category.id))
+            )}
+          </ScrollView>
+        </View>
+
+        {/* Sub Categories */}
+        {showSubCategories && subCategories.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="subdirectory-arrow-right" size={24} color="#40E0D0" />
+              <Text style={styles.sectionTitle}>الفئات الفرعية</Text>
             </View>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.subCategoriesScroll}
+            >
+              {subCategories.map((subCategory) => renderSubCategoryItem(subCategory, selectedSubCategory === subCategory.id))}
+            </ScrollView>
           </View>
         )}
+
+        {/* Products */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="inventory" size={24} color="#40E0D0" />
+            <Text style={styles.sectionTitle}>
+              المنتجات ({products.length})
+            </Text>
+          </View>
+          
+          {searching ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#40E0D0" />
+              <Text style={styles.loadingText}>جاري البحث...</Text>
+            </View>
+          ) : products.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="search-off" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>لا توجد منتجات</Text>
+              <Text style={styles.emptySubtext}>جرب البحث بكلمات مختلفة</Text>
+            </View>
+          ) : (
+            <View style={styles.productsGrid}>
+              {products.map(renderProductItem)}
+            </View>
+          )}
+        </View>
+        
+        {/* Bottom Spacing for Tab Bar */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -462,23 +540,19 @@ export default function StoreOwnerSearch() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
   },
   header: {
     backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   backButton: {
     padding: 8,
@@ -488,160 +562,140 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  placeholder: {
+  headerSpacer: {
     width: 40,
   },
   searchContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     gap: 12,
   },
-  searchInputContainer: {
+  searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
     paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
     fontSize: 16,
     color: '#333',
-    textAlign: 'right',
     marginLeft: 8,
   },
   clearButton: {
     padding: 4,
   },
   searchButton: {
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
+    backgroundColor: '#40E0D0',
     padding: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 12,
   },
-  categoriesContainer: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  categoriesContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  categoryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  categoryButtonActive: {
-    backgroundColor: '#FF6B35',
-    borderColor: '#FF6B35',
-  },
-  categoryButtonText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '600',
-  },
-  categoryButtonTextActive: {
-    color: '#fff',
-  },
-  resultsContainer: {
+  scrollView: {
     flex: 1,
+  },
+  section: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 40,
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
     color: '#666',
+    marginTop: 12,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  categoriesScroll: {
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+  },
+  categoryCard: {
     alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
+    padding: 16,
+    marginRight: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    minWidth: 80,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 16,
+  categoryCardActive: {
+    backgroundColor: '#40E0D0',
+  },
+  categoryIcon: {
     marginBottom: 8,
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  initialContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
-  },
-  initialTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  categoryName: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  initialText: {
-    fontSize: 16,
-    color: '#666',
     textAlign: 'center',
-    lineHeight: 24,
   },
-  productsContainer: {
-    padding: 20,
+  categoryNameActive: {
+    color: '#fff',
   },
-  resultsCount: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 16,
-    textAlign: 'center',
+  subCategoriesScroll: {
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+  },
+  subCategoryCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 20,
+  },
+  subCategoryCardActive: {
+    backgroundColor: '#40E0D0',
+  },
+  subCategoryName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  subCategoryNameActive: {
+    color: '#fff',
   },
   productsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: 16,
   },
   productCard: {
     width: (width - 60) / 2,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
   },
   productImageContainer: {
-    height: 120,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    overflow: 'hidden',
     position: 'relative',
+    height: 120,
   },
   productImage: {
     width: '100%',
@@ -650,7 +704,7 @@ const styles = StyleSheet.create({
   productImagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -658,29 +712,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
+    backgroundColor: '#ff4757',
     paddingHorizontal: 8,
     paddingVertical: 4,
+    borderRadius: 12,
   },
   discountText: {
-    color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+    color: '#fff',
   },
-  favoriteButtonContainer: {
+  favoriteButton: {
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  favoriteButtonStyle: {
-    padding: 0,
   },
   productContent: {
     padding: 12,
@@ -699,31 +744,79 @@ const styles = StyleSheet.create({
   productPriceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 8,
+    marginBottom: 4,
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#40E0D0',
   },
   discountPrice: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#FF6B35',
-    marginRight: 8,
+    color: '#40E0D0',
   },
   originalPrice: {
     fontSize: 12,
     color: '#999',
     textDecorationLine: 'line-through',
   },
-  productQuantity: {
+  productMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  quantityText: {
     fontSize: 12,
     color: '#666',
   },
-  productCategory: {
-    fontSize: 11,
+  availabilityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  availabilityText: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+  },
+  emptyCategoriesContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptyCategoriesText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  emptyCategoriesSubtext: {
+    fontSize: 12,
     color: '#999',
     marginTop: 4,
+  },
+  categoriesSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  categoriesContainer: {
+    alignItems: 'center',
+  },
+  bottomSpacing: {
+    height: 120,
   },
 }); 

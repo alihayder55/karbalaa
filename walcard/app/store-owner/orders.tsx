@@ -8,9 +8,10 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
@@ -22,6 +23,8 @@ interface Order {
   total_price: number;
   delivery_address?: string;
   delivery_notes?: string;
+  created_at: string;
+  updated_at: string;
   order_items: OrderItem[];
 }
 
@@ -37,12 +40,12 @@ interface OrderItem {
 }
 
 const ORDER_STATUSES = {
-  pending: { label: 'في الانتظار', color: '#FFA500', icon: 'schedule' },
-  confirmed: { label: 'مؤكد', color: '#007AFF', icon: 'check-circle' },
-  preparing: { label: 'قيد التحضير', color: '#FF6B35', icon: 'restaurant' },
+  pending: { label: 'في الانتظار', color: '#ff9800', icon: 'schedule' },
+  confirmed: { label: 'مؤكد', color: '#40E0D0', icon: 'check-circle' },
+  preparing: { label: 'قيد التحضير', color: '#1ABC9C', icon: 'restaurant' },
   shipped: { label: 'تم الشحن', color: '#28A745', icon: 'local-shipping' },
   delivered: { label: 'تم التوصيل', color: '#28A745', icon: 'done' },
-  cancelled: { label: 'ملغي', color: '#DC3545', icon: 'cancel' },
+  cancelled: { label: 'ملغي', color: '#ff4757', icon: 'cancel' },
 };
 
 export default function StoreOwnerOrders() {
@@ -170,9 +173,10 @@ export default function StoreOwnerOrders() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6B35" />
+          <ActivityIndicator size="large" color="#40E0D0" />
           <Text style={styles.loadingText}>جاري تحميل الطلبات...</Text>
         </View>
       </SafeAreaView>
@@ -180,54 +184,59 @@ export default function StoreOwnerOrders() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>الطلبات</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>الطلبات</Text>
+          <View style={styles.headerSpacer} />
+        </View>
       </View>
 
       {/* Status Filter */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterContainer}
-        contentContainerStyle={styles.filterContent}
-      >
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            selectedStatus === 'all' && styles.filterButtonActive
-          ]}
-          onPress={() => setSelectedStatus('all')}
+      <View style={styles.filterContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContent}
         >
-          <Text style={[
-            styles.filterButtonText,
-            selectedStatus === 'all' && styles.filterButtonTextActive
-          ]}>
-            الكل ({orders.length})
-          </Text>
-        </TouchableOpacity>
-        
-        {Object.entries(ORDER_STATUSES).map(([status, info]) => {
-          const count = orders.filter(order => order.status === status).length;
-          return (
-            <TouchableOpacity
-              key={status}
-              style={[
-                styles.filterButton,
-                selectedStatus === status && styles.filterButtonActive
-              ]}
-              onPress={() => setSelectedStatus(status)}
-            >
-              <Text style={[
-                styles.filterButtonText,
-                selectedStatus === status && styles.filterButtonTextActive
-              ]}>
-                {info.label} ({count})
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedStatus === 'all' && styles.filterButtonActive
+            ]}
+            onPress={() => setSelectedStatus('all')}
+          >
+            <Text style={[
+              styles.filterButtonText,
+              selectedStatus === 'all' && styles.filterButtonTextActive
+            ]}>
+              الكل ({orders.length})
+            </Text>
+          </TouchableOpacity>
+          
+          {Object.entries(ORDER_STATUSES).map(([status, info]) => {
+            const count = orders.filter(order => order.status === status).length;
+            return (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.filterButton,
+                  selectedStatus === status && styles.filterButtonActive
+                ]}
+                onPress={() => setSelectedStatus(status)}
+              >
+                <Text style={[
+                  styles.filterButtonText,
+                  selectedStatus === status && styles.filterButtonTextActive
+                ]}>
+                  {info.label} ({count})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -259,25 +268,12 @@ export default function StoreOwnerOrders() {
                 >
                   <View style={styles.orderHeader}>
                     <View style={styles.orderInfo}>
-                      <Text style={styles.orderNumber}>
-                        طلب #{order.id.slice(-8)}
-                      </Text>
-                      <Text style={styles.orderDate}>
-                        طلب حديث
-                      </Text>
+                      <Text style={styles.orderNumber}>طلب #{order.id.slice(-8)}</Text>
+                      <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
                     </View>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: statusInfo.color }
-                    ]}>
-                      <MaterialIcons 
-                        name={statusInfo.icon as any} 
-                        size={16} 
-                        color="#fff" 
-                      />
-                      <Text style={styles.statusText}>
-                        {statusInfo.label}
-                      </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
+                      <MaterialIcons name={statusInfo.icon as any} size={16} color="#fff" />
+                      <Text style={styles.statusText}>{statusInfo.label}</Text>
                     </View>
                   </View>
 
@@ -285,10 +281,10 @@ export default function StoreOwnerOrders() {
                     {order.order_items.slice(0, 2).map((item) => (
                       <View key={item.id} style={styles.orderItem}>
                         <Text style={styles.itemName} numberOfLines={1}>
-                          {item.product?.name}
+                          {item.product.name}
                         </Text>
                         <Text style={styles.itemQuantity}>
-                          {item.quantity} × {formatPrice(item.price_at_order)}
+                          الكمية: {item.quantity}
                         </Text>
                       </View>
                     ))}
@@ -301,11 +297,11 @@ export default function StoreOwnerOrders() {
 
                   <View style={styles.orderFooter}>
                     <Text style={styles.totalPrice}>
-                      المجموع: {formatPrice(order.total_price)}
+                      {formatPrice(order.total_price)}
                     </Text>
-                    <TouchableOpacity style={styles.viewDetailsButton}>
-                      <Text style={styles.viewDetailsText}>عرض التفاصيل</Text>
-                      <MaterialIcons name="arrow-forward-ios" size={16} color="#FF6B35" />
+                    <TouchableOpacity style={styles.detailsButton}>
+                      <Text style={styles.detailsButtonText}>عرض التفاصيل</Text>
+                      <MaterialIcons name="arrow-forward-ios" size={16} color="#40E0D0" />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -313,6 +309,9 @@ export default function StoreOwnerOrders() {
             })}
           </View>
         )}
+        
+        {/* Bottom Spacing for Tab Bar */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -321,7 +320,27 @@ export default function StoreOwnerOrders() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
+  },
+  header: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  backButton: {
+    padding: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -329,55 +348,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
     color: '#666',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
+    marginTop: 12,
   },
   filterContainer: {
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#f0f0f0',
+    paddingVertical: 4, // Add some padding
   },
   filterContent: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 4, // Reduced padding
   },
   filterButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6, // Slightly reduced
+    marginRight: 12,
     borderRadius: 20,
     backgroundColor: '#f8f9fa',
-    marginRight: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e9ecef',
+    // Updated to match home page design
   },
   filterButtonActive: {
-    backgroundColor: '#FF6B35',
-    borderColor: '#FF6B35',
+    backgroundColor: '#40E0D0',
+    borderColor: '#40E0D0',
   },
   filterButtonText: {
     fontSize: 14,
-    color: '#666',
     fontWeight: '600',
+    color: '#666',
   },
   filterButtonTextActive: {
     color: '#fff',
@@ -393,11 +395,11 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 20,
+    marginBottom: 12,
   },
   emptyText: {
     fontSize: 16,
@@ -410,14 +412,14 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
     marginBottom: 16,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   orderHeader: {
     flexDirection: 'row',
@@ -444,12 +446,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    gap: 4,
   },
   statusText: {
-    color: '#fff',
     fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
+    fontWeight: '600',
+    color: '#fff',
   },
   orderItems: {
     marginBottom: 12,
@@ -464,16 +466,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     flex: 1,
-    marginRight: 8,
   },
   itemQuantity: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
-    fontWeight: '600',
   },
   moreItems: {
     fontSize: 12,
-    color: '#999',
+    color: '#40E0D0',
     fontStyle: 'italic',
     marginTop: 4,
   },
@@ -486,18 +486,24 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
   },
   totalPrice: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#FF6B35',
+    color: '#40E0D0',
   },
-  viewDetailsButton: {
+  detailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  viewDetailsText: {
+  detailsButtonText: {
     fontSize: 14,
-    color: '#FF6B35',
     fontWeight: '600',
-    marginRight: 4,
+    color: '#40E0D0',
+  },
+  bottomSpacing: {
+    height: 120,
+  },
+  headerSpacer: {
+    width: 40, // Adjust as needed to balance the title and back button
   },
 }); 
